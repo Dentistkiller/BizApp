@@ -1,0 +1,174 @@
+@model BizApp.Models.Transaction
+@using System.Globalization
+
+@{
+    ViewData["Title"] = "Create Transaction";
+    const string TS_FMT = "yyyy-MM-dd HH:mm:ss";
+}
+
+<h1>Create Transaction</h1>
+<hr />
+
+<div class="row">
+    <div class="col-md-6">
+        <form asp-action="Create" id="createForm">
+            @Html.AntiForgeryToken()
+            <div asp-validation-summary="ModelOnly" class="text-danger"></div>
+
+            <!-- Customer by NAME -->
+            <div class="form-group mb-3">
+                <label asp-for="customer_id" class="form-label">Customer</label>
+                <select asp-for="customer_id" class="form-select" asp-items="ViewBag.customer_id"></select>
+            </div>
+
+            <!-- Card (friendly text) -->
+            <div class="form-group mb-3">
+                <label asp-for="card_id" class="form-label">Card</label>
+                <select asp-for="card_id" class="form-select" asp-items="ViewBag.card_id"></select>
+            </div>
+
+            <!-- Merchant by NAME -->
+            <div class="form-group mb-3">
+                <label asp-for="merchant_id" class="form-label">Merchant</label>
+                <select asp-for="merchant_id" class="form-select" asp-items="ViewBag.merchant_id"></select>
+            </div>
+
+            <div class="form-group mb-3">
+                <label asp-for="amount" class="form-label">Amount</label>
+                <input asp-for="amount" class="form-control" inputmode="decimal" />
+                <span asp-validation-for="amount" class="text-danger"></span>
+            </div>
+
+            <!-- Currency defaulted to ZAR but editable -->
+            <div class="form-group mb-3">
+                <label asp-for="currency" class="form-label">Currency</label>
+                <input asp-for="currency" class="form-control" value="ZAR" />
+                <span asp-validation-for="currency" class="text-danger"></span>
+            </div>
+
+            <!-- tx_utc: hidden, auto-filled to UTC string -->
+            <input asp-for="tx_utc" type="hidden" id="txUtc" />
+
+            <!-- entry_mode/channel defaulting (editable if you want) -->
+            <div class="form-group mb-3">
+                <label asp-for="entry_mode" class="form-label">Entry Mode</label>
+                <input asp-for="entry_mode" class="form-control" value="online" />
+                <span asp-validation-for="entry_mode" class="text-danger"></span>
+            </div>
+
+            <div class="form-group mb-3">
+                <label asp-for="channel" class="form-label">Channel (source)</label>
+                <input asp-for="channel" class="form-control" value="eft" />
+                <span asp-validation-for="channel" class="text-danger"></span>
+            </div>
+
+            <!-- Hidden hashes (IDs chosen to match JS below) -->
+            <input asp-for="device_id_hash" type="hidden" id="device_id_hash" />
+            <input asp-for="ip_hash" type="hidden" id="ip_hash" />
+
+            <div class="row">
+                <div class="col-md-6 mb-3">
+                    <label asp-for="lat" class="form-label">Latitude</label>
+                    <input asp-for="lat" class="form-control" id="latInput" />
+                    <span asp-validation-for="lat" class="text-danger"></span>
+                </div>
+                <div class="col-md-6 mb-3">
+                    <label asp-for="lon" class="form-label">Longitude</label>
+                    <input asp-for="lon" class="form-control" id="lonInput" />
+                    <span asp-validation-for="lon" class="text-danger"></span>
+                </div>
+            </div>
+
+            <div class="d-flex gap-2 mb-3">
+                <button type="button" class="btn btn-outline-secondary" id="locBtn">Use my location</button>
+                <button type="button" class="btn btn-outline-secondary" id="nowBtn">Use current time (UTC)</button>
+            </div>
+
+            <div class="form-group">
+                <input type="submit" value="Create" class="btn btn-primary" />
+                <a asp-action="Index" class="btn btn-link">Back to List</a>
+            </div>
+        </form>
+    </div>
+</div>
+
+@section Scripts {
+    @{
+        await Html.RenderPartialAsync("_ValidationScriptsPartial");
+    }
+
+    <!-- CryptoJS for SHA-256 (hex) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.2.0/crypto-js.min.js" integrity="sha512-3nVd3mBzjiTt1Nwz4A0y5h8kBzJ3sH0iIocrqf3J3b8hQ3lQK4lV9Q4i0H2sW3+2X4G0WQXk4N8mH3m0qvJxVw==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+
+    <script>
+        (function () {
+            const txUtcEl = document.getElementById('txUtc');
+            const latEl   = document.getElementById('latInput');
+            const lonEl   = document.getElementById('lonInput');
+
+            function pad(n){ return n<10 ? '0'+n : n; }
+            function toUtcString(d){
+                return d.getUTCFullYear() + '-' + pad(d.getUTCMonth()+1) + '-' + pad(d.getUTCDate())
+                    + ' ' + pad(d.getUTCHours()) + ':' + pad(d.getUTCMinutes()) + ':' + pad(d.getUTCSeconds());
+            }
+
+            // On load: set tx_utc to current UTC
+            txUtcEl.value = toUtcString(new Date());
+
+            // Button: set now
+            document.getElementById('nowBtn').addEventListener('click', function(){
+                txUtcEl.value = toUtcString(new Date());
+            });
+
+            // Button: geolocate
+            document.getElementById('locBtn').addEventListener('click', function(){
+                if (!navigator.geolocation) { alert('Geolocation not supported.'); return; }
+                navigator.geolocation.getCurrentPosition(function(pos){
+                    latEl.value = pos.coords.latitude.toFixed(6);
+                    lonEl.value = pos.coords.longitude.toFixed(6);
+                }, function(err){
+                    console.warn('Geolocation error', err);
+                    alert('Could not get your location.');
+                }, { enableHighAccuracy: true, timeout: 8000, maximumAge: 0 });
+            });
+        })();
+    </script>
+
+    <script>
+        (function () {
+            // Helpers
+            function sha256Hex(str) {
+                return CryptoJS.SHA256(str).toString(CryptoJS.enc.Hex); // hex string
+            }
+
+            // Stable device fingerprint (client-side) persisted in localStorage
+            function getStableDeviceId() {
+                let devId = localStorage.getItem('device_id');
+                if (!devId) {
+                    // collect a few hints to make it *semi* stable without being invasive
+                    const hints = [
+                        navigator.userAgent || '',
+                        navigator.language || '',
+                        screen.width + 'x' + screen.height,
+                        Intl.DateTimeFormat().resolvedOptions().timeZone || ''
+                    ].join('|');
+                    devId = hints + '|' + crypto.randomUUID();
+                    localStorage.setItem('device_id', devId);
+                }
+                return devId;
+            }
+
+            const deviceField = document.getElementById('device_id_hash');
+            const ipField     = document.getElementById('ip_hash');
+
+            // Fill device_id_hash (hex)
+            deviceField.value = sha256Hex(getStableDeviceId());
+
+            // Fill ip_hash (hex) using ipify; fallback to 'unknown'
+            fetch('https://api.ipify.org?format=json', { cache: 'no-store' })
+                .then(r => r.ok ? r.json() : Promise.reject(r.status))
+                .then(data => { ipField.value = sha256Hex(data.ip || 'unknown'); })
+                .catch(() => { ipField.value = sha256Hex('unknown'); });
+        })();
+    </script>
+}

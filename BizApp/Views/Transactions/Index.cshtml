@@ -1,0 +1,156 @@
+@model IEnumerable<BizApp.Controllers.TransactionListVm>
+@{
+    ViewData["Title"] = "Transactions";
+
+    // Preserve filter values
+    var q = Context.Request.Query;
+    string fromVal = q["from"];
+    string toVal = q["to"];
+    string flaggedOnlyVal = q["flaggedOnly"];
+    string merchantIdVal = q["merchantId"];
+
+    bool flaggedChecked = string.Equals(flaggedOnlyVal, "true", System.StringComparison.OrdinalIgnoreCase);
+}
+
+<div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-3">
+    <h1 class="h3 mb-0"><i class="bi bi-credit-card-2-front me-2"></i>Transactions</h1>
+    <div class="d-flex gap-2">
+        <a asp-action="Create" class="btn btn-primary">
+            <i class="bi bi-plus-lg me-1"></i> Create New
+        </a>
+    </div>
+</div>
+
+<form method="get" class="row g-3 bg-body-tertiary border rounded-3 p-3 mb-3">
+    <div class="col-12 col-md-3">
+        <label class="form-label">From</label>
+        <input type="datetime-local" class="form-control" name="from" value="@fromVal" />
+    </div>
+    <div class="col-12 col-md-3">
+        <label class="form-label">To</label>
+        <input type="datetime-local" class="form-control" name="to" value="@toVal" />
+    </div>
+    <div class="col-12 col-md-3">
+        <label class="form-label">Merchant</label>
+        <select asp-items="ViewBag.merchant_id" name="merchantId" class="form-select">
+            <option value="">-- All --</option>
+        </select>
+        <script>
+            // Keep selected merchant after reload
+            (function() {
+                var sel = document.querySelector('select[name="merchantId"]');
+                if (sel) sel.value = '@merchantIdVal';
+            })();
+        </script>
+    </div>
+    <div class="col-12 col-md-2 d-flex align-items-end">
+        <div class="form-check">
+            <input type="checkbox" class="form-check-input" name="flaggedOnly" value="true" id="flaggedOnly" @(flaggedChecked ? "checked" : "") />
+            <label class="form-check-label" for="flaggedOnly">Flagged only</label>
+        </div>
+    </div>
+    <div class="col-12 col-md-1 d-flex align-items-end">
+        <button type="submit" class="btn btn-primary w-100">
+            <i class="bi bi-funnel me-1"></i> Filter
+        </button>
+    </div>
+</form>
+
+<div class="table-responsive">
+    <table class="table table-hover table-sm align-middle">
+        <thead class="table-light">
+            <tr>
+                <th>Tx&nbsp;ID</th>
+                <th>UTC Time</th>
+                <th class="text-end">Amount</th>
+                <th>Channel</th>
+                <th>Status</th>
+                <th class="text-end">Score</th>
+                <th>Risk</th>
+                <th style="width:190px;"></th>
+            </tr>
+        </thead>
+        <tbody>
+            @if (!Model.Any())
+            {
+                <tr>
+                    <td colspan="8" class="text-center py-4 text-muted">
+                        <i class="bi bi-inbox me-2"></i>No transactions match your filters.
+                    </td>
+                </tr>
+            }
+            else
+            {
+                foreach (var t in Model)
+                {
+                    var riskBadgeClass = t.label_pred == true
+                    ? "bg-danger"
+                    : (t.score.HasValue && t.score.Value >= 0.5 ? "bg-warning text-dark" : "bg-secondary");
+
+                    var rowClass = t.label_pred == true ? "table-danger" : "";
+                    var scoreText = t.score.HasValue ? t.score.Value.ToString("0.00") : "—";
+
+                    string ChannelBadge(string? ch) => string.IsNullOrWhiteSpace(ch)
+                    ? "<span class=\"badge bg-secondary\">n/a</span>"
+                    : ch.ToLower() switch
+                    {
+                        "ecom" => "<span class=\"badge bg-primary-subtle text-primary\">e-com</span>",
+                        "pos" => "<span class=\"badge bg-success-subtle text-success\">POS</span>",
+                        "in-app" => "<span class=\"badge bg-info-subtle text-info\">in-app</span>",
+                        "eft" => "<span class=\"badge bg-purple text-light\" style=\"background:#6f42c1!important;\">EFT</span>",
+                        _ => $"<span class=\"badge bg-secondary\">{ch}</span>"
+                    };
+
+                    string StatusBadge(string s) => (s ?? "Pending").ToLower() switch
+                    {
+                        "pending" => "<span class=\"badge bg-secondary\">Pending</span>",
+                        "settled" => "<span class=\"badge bg-success\">Settled</span>",
+                        "reversed" => "<span class=\"badge bg-warning text-dark\">Reversed</span>",
+                        _ => $"<span class=\"badge bg-secondary\">{s}</span>"
+                    };
+
+                    <tr class="@rowClass">
+                        <td class="text-nowrap">@t.tx_id</td>
+                        <td class="text-nowrap">@t.tx_utc</td>
+                        <td class="text-end">@t.amount.ToString("0.00") @t.currency</td>
+                        <td>@Html.Raw(ChannelBadge(t.channel))</td>
+                        <td>@Html.Raw(StatusBadge(t.status))</td>
+                        <td class="text-end">@scoreText</td>
+                        <td>
+                            <span class="badge @riskBadgeClass">@t.RiskBadge</span>
+                        </td>
+                        <td class="text-end">
+                            <div class="btn-group btn-group-sm" role="group">
+                                <a asp-action="Details" asp-route-id="@t.tx_id" class="btn btn-outline-primary">
+                                    <i class="bi bi-eye"></i>
+                                </a>
+                                <a asp-action="Edit" asp-route-id="@t.tx_id" class="btn btn-outline-secondary">
+                                    <i class="bi bi-pencil"></i>
+                                </a>
+                                <a asp-action="Delete" asp-route-id="@t.tx_id" class="btn btn-outline-danger">
+                                    <i class="bi bi-trash"></i>
+                                </a>
+                            </div>
+                        </td>
+                    </tr>
+                }
+            }
+        </tbody>
+    </table>
+</div>
+
+@section Scripts {
+    <script>
+        // Optional: keep datetime-local inputs if server gave ISO w/ seconds,
+        // convert if needed (no-op if already correct).
+        for (const name of ["from", "to"]) {
+            const el = document.querySelector(`input[name="${name}"]`);
+            if (!el || !el.value) continue;
+            // Ensure "YYYY-MM-DDTHH:mm" format (datetime-local)
+            if (el.value.length === 19 && el.value.indexOf('T') === -1) {
+                // "yyyy-MM-dd HH:mm:ss" -> "yyyy-MM-ddTHH:mm"
+                el.value = el.value.replace(' ', 'T').slice(0,16);
+            }
+        }
+    </script>
+}

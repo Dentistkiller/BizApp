@@ -1,0 +1,248 @@
+﻿@model BizApp.ViewModels.DashboardVm
+@{
+    ViewData["Title"] = "Dashboard";
+}
+
+<div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-3">
+    <div>
+        <h1 class="h4 mb-0">Fraud Review Dashboard</h1>
+        <div class="text-muted small">Monitor flagged activity and model performance</div>
+    </div>
+    <div class="d-flex align-items-center gap-2">
+        <select id="daysSelect" class="form-select form-select-sm">
+            <option value="7">Last 7 days</option>
+            <option value="14" selected>Last 14 days</option>
+            <option value="30">Last 30 days</option>
+        </select>
+        <button id="refreshBtn" class="btn btn-sm btn-outline-primary">
+            <i class="bi bi-arrow-repeat me-1"></i>Refresh
+        </button>
+    </div>
+</div>
+
+<div class="row g-3 mb-4">
+    <div class="col-6 col-md-3">
+        <div class="card shadow-sm p-3 h-100">
+            <div class="d-flex align-items-center gap-2 text-muted">
+                <i class="bi bi-receipt"></i><span>Tx (24h)</span>
+            </div>
+            <div class="display-6" id="kpiTx24h">@Model.TotalTx24h</div>
+        </div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="card shadow-sm p-3 h-100">
+            <div class="d-flex align-items-center gap-2 text-muted">
+                <i class="bi bi-flag-fill"></i><span>Flagged (24h)</span>
+            </div>
+            <div class="display-6" id="kpiFlag24h">@Model.FlaggedTx24h</div>
+        </div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="card shadow-sm p-3 h-100">
+            <div class="d-flex align-items-center gap-2 text-muted">
+                <i class="bi bi-percent"></i><span>Flag Rate (24h)</span>
+            </div>
+            <div class="display-6" id="kpiRate24h">@Model.FlagRate24h.ToString("P1")</div>
+        </div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="card shadow-sm p-3 h-100">
+            <div class="d-flex align-items-center gap-2 text-muted">
+                <i class="bi bi-currency-exchange"></i><span>Amount (24h)</span>
+            </div>
+            <div class="display-6" id="kpiAmt24h">@Model.TotalAmount24h.ToString("N2") <small class="text-muted">ZAR</small></div>
+        </div>
+    </div>
+</div>
+
+<div class="row g-4">
+    <div class="col-lg-8">
+        <div class="card shadow-sm p-3 h-100">
+            <div class="d-flex align-items-center justify-content-between mb-2">
+                <h5 class="mb-0">Daily totals vs flagged</h5>
+                <div class="small text-muted" id="chartSubtitle">UTC</div>
+            </div>
+            <div id="chartWrap" class="position-relative">
+                <canvas id="dailyChart" height="120" aria-label="Daily totals vs flagged"></canvas>
+                <div id="chartLoading" class="position-absolute top-50 start-50 translate-middle text-muted d-none">
+                    <div class="spinner-border spinner-border-sm me-2" role="status"></div> Loading…
+                </div>
+                <div id="chartEmpty" class="text-center text-muted py-4 d-none">
+                    <i class="bi bi-inbox me-2"></i>No data for the selected range.
+                </div>
+                <div id="chartError" class="alert alert-danger d-none mt-2 mb-0">
+                    Could not load chart data. Please try again.
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-4">
+        <div class="card shadow-sm p-3 h-100">
+            <h5 class="mb-3">Top merchants (<span id="topDays">7</span>d)</h5>
+
+            @if (Model.TopMerchants?.Any() ?? false)
+            {
+                <div class="vstack gap-3">
+                    @foreach (var r in Model.TopMerchants)
+                    {
+                        var pct = r.TxCount > 0 ? (double)r.FlaggedCount / r.TxCount : 0.0;
+                        <div>
+                            <div class="d-flex justify-content-between small">
+                                <div class="fw-medium">@r.MerchantName</div>
+                                <div class="text-muted">@r.FlaggedCount / @r.TxCount (@pct.ToString("P1"))</div>
+                            </div>
+                            <div class="progress" style="height:8px;">
+                                <div class="progress-bar @((pct >= 0.2) ? "bg-danger" : (pct >= 0.08) ? "bg-warning text-dark" : "bg-success")"
+                                     role="progressbar" style="width:@(Math.Round(pct * 100, 1))%"></div>
+                            </div>
+                        </div>
+                    }
+                </div>
+            }
+            else
+            {
+                <div class="text-muted text-center py-4">
+                    <i class="bi bi-inbox me-1"></i> No merchant activity yet.
+                </div>
+            }
+        </div>
+    </div>
+</div>
+
+<div class="card shadow-sm p-3 mt-4">
+    <h5 class="mb-2">Latest Model Run</h5>
+    @if (Model.LatestRunId.HasValue)
+    {
+        <div class="row g-2 small">
+            <div class="col-md-4">Run Id: <b>@Model.LatestRunId</b></div>
+            <div class="col-md-4">Model: <b>@Model.LatestModelVersion</b></div>
+            <div class="col-md-4 text-md-end">
+                <span class="text-muted">Started:</span> @Model.LatestRunStarted
+                <span class="text-muted ms-2">Finished:</span> @Model.LatestRunFinished
+            </div>
+        </div>
+    }
+    else
+    {
+        <div class="text-muted">No runs yet.</div>
+    }
+</div>
+
+@section Scripts {
+    <!-- Bootstrap Icons (if not already in layout) -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" />
+
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+
+    <script>
+        (function () {
+            const dailyUrl = (days) => '@Url.Action("DailyFlags", "Dashboard")' + `?days=${days}`;
+            const daysSelect = document.getElementById('daysSelect');
+            const refreshBtn = document.getElementById('refreshBtn');
+            const chartLoading = document.getElementById('chartLoading');
+            const chartEmpty = document.getElementById('chartEmpty');
+            const chartError = document.getElementById('chartError');
+            const topDays = document.getElementById('topDays');
+
+            let chart;
+
+            function showState({ loading = false, empty = false, error = false }) {
+                chartLoading.classList.toggle('d-none', !loading);
+                chartEmpty.classList.toggle('d-none', !empty);
+                chartError.classList.toggle('d-none', !error);
+            }
+
+            function gradient(ctx) {
+                const g = ctx.createLinearGradient(0, 0, 0, 200);
+                g.addColorStop(0, 'rgba(13,110,253,0.25)');
+                g.addColorStop(1, 'rgba(13,110,253,0.02)');
+                return g;
+            }
+
+            async function loadChart(days) {
+                showState({ loading: true });
+                try {
+                    const res = await fetch(dailyUrl(days), { cache: 'no-store' });
+                    if (!res.ok) throw new Error('HTTP ' + res.status);
+                    const rows = await res.json();
+
+                    if (!Array.isArray(rows) || rows.length === 0) {
+                        showState({ empty: true });
+                        if (chart) chart.destroy();
+                        return;
+                    }
+
+                    const labels = rows.map(r => r.date);
+                    const total = rows.map(r => r.total);
+                    const flagged = rows.map(r => r.flagged);
+
+                    const ctx = document.getElementById('dailyChart').getContext('2d');
+                    if (chart) chart.destroy();
+                    chart = new Chart(ctx, {
+                        type: 'line',
+                        data: {
+                            labels,
+                            datasets: [
+                                {
+                                    label: 'Total',
+                                    data: total,
+                                    fill: true,
+                                    backgroundColor: gradient(ctx),
+                                    borderColor: 'rgba(13,110,253,0.9)',
+                                    borderWidth: 2,
+                                    pointRadius: 0,
+                                    tension: 0.25
+                                },
+                                {
+                                    label: 'Flagged',
+                                    data: flagged,
+                                    fill: false,
+                                    borderColor: 'rgba(220,53,69,0.9)',
+                                    borderWidth: 2,
+                                    pointRadius: 0,
+                                    tension: 0.25
+                                }
+                            ]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            interaction: { mode: 'index', intersect: false },
+                            plugins: {
+                                legend: { position: 'bottom' },
+                                tooltip: {
+                                    callbacks: {
+                                        label: (ctx) => ` ${ctx.dataset.label}: ${ctx.formattedValue}`
+                                    }
+                                }
+                            },
+                            scales: {
+                                x: { grid: { display: false } },
+                                y: { beginAtZero: true, ticks: { precision: 0 } }
+                            }
+                        }
+                    });
+                    showState({});
+                } catch (e) {
+                    console.error(e);
+                    showState({ error: true });
+                }
+            }
+
+            // Wire up controls
+            daysSelect.addEventListener('change', () => {
+                const d = daysSelect.value;
+                topDays.textContent = d;
+                loadChart(d);
+            });
+            refreshBtn.addEventListener('click', () => loadChart(daysSelect.value));
+
+            // Initial load
+            loadChart(daysSelect.value);
+
+            // Optional: auto-refresh every 60s (disable if not needed)
+            // setInterval(() => loadChart(daysSelect.value), 60000);
+        })();
+    </script>
+}

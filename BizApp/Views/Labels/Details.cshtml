@@ -1,0 +1,42 @@
+@model BizApp.Models.Label
+
+@{
+    ViewData["Title"] = "Details";
+}
+
+<h1>Details</h1>
+
+<div>
+    <h4>Label</h4>
+    <hr />
+    <dl class="row">
+        <dt class = "col-sm-2">
+            @Html.DisplayNameFor(model => model.label)
+        </dt>
+        <dd class = "col-sm-10">
+            @Html.DisplayFor(model => model.label)
+        </dd>
+        <dt class = "col-sm-2">
+            @Html.DisplayNameFor(model => model.labeled_at)
+        </dt>
+        <dd class = "col-sm-10">
+            @Html.DisplayFor(model => model.labeled_at)
+        </dd>
+        <dt class = "col-sm-2">
+            @Html.DisplayNameFor(model => model.source)
+        </dt>
+        <dd class = "col-sm-10">
+            @Html.DisplayFor(model => model.source)
+        </dd>
+        <dt class = "col-sm-2">
+            @Html.DisplayNameFor(model => model.tx)
+        </dt>
+        <dd class = "col-sm-10">
+            @Html.DisplayFor(model => model.tx.tx_id)
+        </dd>
+    </dl>
+</div>
+<div>
+    <a asp-action="Edit" asp-route-id="@Model?.tx_id">Edit</a> |
+    <a asp-action="Index">Back to List</a>
+</div>

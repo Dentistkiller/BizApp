@@ -1,0 +1,140 @@
+@model IEnumerable<BizApp.Models.Merchant>
+@{
+    ViewData["Title"] = "Merchants";
+
+    // Preserve current query values
+    var q = Context.Request.Query;
+    string search = q["q"];
+    string category = q["category"];
+    string risk = q["risk"];
+    string country = q["country"];
+}
+
+<div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-3">
+    <h1 class="h3 mb-0"><i class="bi bi-shop me-2"></i>Merchants</h1>
+    <a asp-action="Create" class="btn btn-primary">
+        <i class="bi bi-plus-lg me-1"></i> Create New
+    </a>
+</div>
+
+<form method="get" class="row g-3 bg-body-tertiary border rounded-3 p-3 mb-3">
+    <div class="col-12 col-md-4">
+        <label class="form-label">Search</label>
+        <input type="text" name="q" class="form-control" placeholder="Name contains…" value="@search" />
+    </div>
+
+    <div class="col-6 col-md-2">
+        <label class="form-label">Category</label>
+        <select name="category" class="form-select">
+            <option value="">All</option>
+            <option value="Retail">Retail</option>
+            <option value="Electronics">Electronics</option>
+            <option value="Grocery">Grocery</option>
+            <option value="Fuel">Fuel</option>
+            <option value="Online">Online</option>
+        </select>
+    </div>
+
+    <div class="col-6 col-md-2">
+        <label class="form-label">Risk</label>
+        <select name="risk" class="form-select">
+            <option value="">All</option>
+            <option value="low">Low</option>
+            <option value="medium">Medium</option>
+            <option value="high">High</option>
+        </select>
+    </div>
+
+    <div class="col-6 col-md-2">
+        <label class="form-label">Country</label>
+        <input type="text" name="country" class="form-control" placeholder="e.g. ZA" value="@country" />
+    </div>
+
+    <div class="col-6 col-md-2 d-flex align-items-end">
+        <button type="submit" class="btn btn-primary w-100">
+            <i class="bi bi-funnel me-1"></i> Filter
+        </button>
+    </div>
+</form>
+
+<div class="table-responsive">
+    <table class="table table-hover table-sm align-middle">
+        <thead class="table-light">
+            <tr>
+                <th>Name</th>
+                <th>Category</th>
+                <th>Country</th>
+                <th>Risk</th>
+                <th class="text-nowrap">Created</th>
+                <th style="width: 180px;"></th>
+            </tr>
+        </thead>
+        <tbody>
+            @if (!Model.Any())
+            {
+                <tr>
+                    <td colspan="6" class="text-center py-4 text-muted">
+                        <i class="bi bi-inbox me-2"></i>No merchants found.
+                    </td>
+                </tr>
+            }
+            else
+            {
+                foreach (var m in Model)
+                {
+                    string RiskBadge(string r) => (r ?? "low").ToLower() switch
+                    {
+                        "high" => "<span class=\"badge bg-danger\">high</span>",
+                        "medium" => "<span class=\"badge bg-warning text-dark\">medium</span>",
+                        _ => "<span class=\"badge bg-success\">low</span>"
+                    };
+
+                    string CategoryBadge(string c) => (c ?? "Retail") switch
+                    {
+                        "Electronics" => "<span class=\"badge bg-info-subtle text-info\">Electronics</span>",
+                        "Grocery" => "<span class=\"badge bg-success-subtle text-success\">Grocery</span>",
+                        "Fuel" => "<span class=\"badge bg-warning-subtle text-warning\">Fuel</span>",
+                        "Online" => "<span class=\"badge bg-primary-subtle text-primary\">Online</span>",
+                        "Retail" => "<span class=\"badge bg-secondary\">Retail</span>",
+                        _ => $"<span class=\"badge bg-secondary\">{c}</span>"
+                    };
+
+                    <tr>
+                        <td class="fw-medium">@m.name</td>
+                        <td>@Html.Raw(CategoryBadge(m.category ?? ""))</td>
+                        <td class="text-uppercase text-muted">@m.country</td>
+                        <td>@Html.Raw(RiskBadge(m.risk_level ?? "low"))</td>
+                        <td class="text-nowrap">@m.created_at.ToString("yyyy-MM-dd HH:mm")</td>
+                        <td class="text-end">
+                            <div class="btn-group btn-group-sm" role="group">
+                                <a asp-action="Details" asp-route-id="@m.merchant_id" class="btn btn-outline-primary" title="Details">
+                                    <i class="bi bi-eye"></i>
+                                </a>
+                                <a asp-action="Edit" asp-route-id="@m.merchant_id" class="btn btn-outline-secondary" title="Edit">
+                                    <i class="bi bi-pencil"></i>
+                                </a>
+                                <a asp-action="Delete" asp-route-id="@m.merchant_id" class="btn btn-outline-danger" title="Delete">
+                                    <i class="bi bi-trash"></i>
+                                </a>
+                            </div>
+                        </td>
+                    </tr>
+                }
+            }
+        </tbody>
+    </table>
+</div>
+
+@section Scripts {
+    <script>
+        // Preserve select values on reload
+        (function () {
+            const setVal = (name, val) => {
+                const el = document.querySelector(`[name="${name}"]`);
+                if (el) el.value = val ?? '';
+            };
+            setVal('category', '@category');
+            setVal('risk', '@risk');
+        })();
+    </script>
+}

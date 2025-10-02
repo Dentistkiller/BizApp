@@ -1,0 +1,154 @@
+﻿@model BizApp.ViewModels.AuthIndexVm
+@using System.Globalization
+@{
+    ViewData["Title"] = "My Account";
+}
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h1 class="mb-0">My Account</h1>
+</div>
+
+<div class="row g-4">
+    <!-- Profile -->
+    <div class="col-lg-5">
+        <div class="card shadow-sm h-100">
+            <div class="card-body">
+                <h5 class="card-title mb-3">Profile</h5>
+
+                @if (TempData["ProfileOk"] != null)
+                {
+                    <div class="alert alert-success">@TempData["ProfileOk"]</div>
+                }
+                @if (TempData["ProfileError"] != null)
+                {
+                    <div class="alert alert-danger">@TempData["ProfileError"]</div>
+                }
+
+                <form asp-action="UpdateProfile" method="post" class="row g-3">
+                    @Html.AntiForgeryToken()
+
+                    <div class="col-12">
+                        <label class="form-label">Customer ID</label>
+                        <input class="form-control" value="@Model.CustomerId" disabled />
+                    </div>
+
+                    <div class="col-12">
+                        <label class="form-label">Name</label>
+                        <input name="Name" class="form-control" value="@Model.Name" placeholder="Your display name" />
+                        <div class="form-text">Shown across the app.</div>
+                    </div>
+
+                    <div class="col-12">
+                        <label class="form-label">Created</label>
+                        <input class="form-control" value="@Model.CreatedAt.ToString("yyyy-MM-dd HH:mm:ss", CultureInfo.InvariantCulture)" disabled />
+                    </div>
+
+                    <div class="col-12">
+                        <label class="form-label">Update Phone (optional)</label>
+                        <input name="NewPhone" class="form-control" placeholder="+27 82 123 4567" />
+                        <div class="form-text">
+                            We store only a one-way hash of your phone. We cannot display the original number.
+                        </div>
+                    </div>
+
+                    <div class="col-12 d-flex gap-2">
+                        <button class="btn btn-primary" type="submit">Save Profile</button>
+                        <a asp-controller="Auth" asp-action="Login" class="btn btn-outline-secondary">Sign in as different user</a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Cards -->
+    <div class="col-lg-7">
+        <div class="card shadow-sm mb-4">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <h5 class="card-title mb-0">My Cards</h5>
+                </div>
+
+                @if (TempData["CardOk"] != null)
+                {
+                    <div class="alert alert-success mb-3">@TempData["CardOk"]</div>
+                }
+                @if (TempData["CardError"] != null)
+                {
+                    <div class="alert alert-danger mb-3">@TempData["CardError"]</div>
+                }
+
+                @if (Model.Cards.Count == 0)
+                {
+                    <p class="text-muted mb-0">No cards yet. Add a new card below.</p>
+                }
+                else
+                {
+                    <div class="table-responsive">
+                        <table class="table table-sm align-middle">
+                            <thead>
+                                <tr>
+                                    <th>ID</th>
+                                    <th>Network</th>
+                                    <th>Last 4</th>
+                                    <th>Country</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var c in Model.Cards)
+                                {
+                                    <tr>
+                                        <td>@c.CardId</td>
+                                        <td>@c.Network</td>
+                                        <td>•••• @c.Last4</td>
+                                        <td>@c.IssueCountry</td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                }
+            </div>
+        </div>
+
+        <div class="card shadow-sm">
+            <div class="card-body">
+                <h5 class="card-title">Add a new card</h5>
+                <form asp-action="CreateCard" method="post" class="row g-3">
+                    @Html.AntiForgeryToken()
+
+                    <div class="col-md-4">
+                        <label class="form-label">Network</label>
+                        <select name="Network" class="form-select">
+                            <option value="Visa" selected>Visa</option>
+                            <option value="MC">Mastercard</option>
+                            <option value="Amex">Amex</option>
+                            <option value="Discover">Discover</option>
+                        </select>
+                    </div>
+
+                    <div class="col-md-4">
+                        <label class="form-label">Last 4</label>
+                        <input name="Last4" class="form-control" maxlength="4" placeholder="1234" />
+                        <div class="form-text">Digits only.</div>
+                    </div>
+
+                    <div class="col-md-4">
+                        <label class="form-label">Issue Country</label>
+                        <input name="IssueCountry" class="form-control" maxlength="2" value="ZA" />
+                        <div class="form-text">ISO-3166 alpha-2 (e.g., ZA).</div>
+                    </div>
+
+                    <div class="col-12">
+                        <button class="btn btn-success" type="submit">Create Card</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    @{
+        await Html.RenderPartialAsync("_ValidationScriptsPartial");
+    }
+}

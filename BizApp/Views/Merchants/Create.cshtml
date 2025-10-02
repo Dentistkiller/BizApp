@@ -1,0 +1,69 @@
+@model BizApp.Models.Merchant
+@using System.Globalization
+
+@{
+    ViewData["Title"] = "Create Merchant";
+    var categories = new[] { "Retail", "Electronics", "Grocery", "Fuel", "Online" };
+    var risks = new[] { "low", "medium", "high" };
+}
+
+<h1 class="mb-3">Create Merchant</h1>
+
+<div class="card shadow-sm">
+    <div class="card-body">
+        <form asp-action="Create" method="post" class="row g-3">
+            @Html.AntiForgeryToken()
+            <div asp-validation-summary="ModelOnly" class="text-danger"></div>
+
+            <div class="col-12">
+                <label asp-for="name" class="form-label">Name</label>
+                <input asp-for="name" class="form-control" placeholder="e.g., Pick n Pay" />
+                <span asp-validation-for="name" class="text-danger"></span>
+            </div>
+
+            <div class="col-md-6">
+                <label asp-for="category" class="form-label">Category</label>
+                <select asp-for="category" class="form-select">
+                    <option value="">-- Select Category --</option>
+                    @foreach (var c in categories)
+                    {
+                        <option value="@c">@c</option>
+                    }
+                </select>
+                <span asp-validation-for="category" class="text-danger"></span>
+            </div>
+
+            <div class="col-md-6">
+                <label asp-for="risk_level" class="form-label">Risk Level</label>
+                <select asp-for="risk_level" class="form-select">
+                    <option value="">-- Select Risk Level --</option>
+                    @foreach (var r in risks)
+                    {
+                        <option value="@r">@r</option>
+                    }
+                </select>
+                <span asp-validation-for="risk_level" class="text-danger"></span>
+            </div>
+
+            <div class="col-md-6">
+                <label asp-for="country" class="form-label">Country</label>
+                <input asp-for="country" class="form-control" value="ZA" />
+                <span asp-validation-for="country" class="text-danger"></span>
+            </div>
+
+            <!-- created_at can be auto-populated in the controller -->
+            <input type="hidden" asp-for="created_at" value="@DateTime.UtcNow.ToString("yyyy-MM-dd HH:mm:ss", CultureInfo.InvariantCulture)" />
+
+            <div class="col-12 d-flex gap-2">
+                <button type="submit" class="btn btn-primary">Create</button>
+                <a asp-action="Index" class="btn btn-outline-secondary">Back to List</a>
+            </div>
+        </form>
+    </div>
+</div>
+
+@section Scripts {
+    @{
+        await Html.RenderPartialAsync("_ValidationScriptsPartial");
+    }
+}

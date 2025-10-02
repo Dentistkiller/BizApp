@@ -1,0 +1,53 @@
+@model IEnumerable<BizApp.Models.Label>
+
+@{
+    ViewData["Title"] = "Index";
+}
+
+<h1>Index</h1>
+
+<p>
+    <a asp-action="Create">Create New</a>
+</p>
+<table class="table">
+    <thead>
+        <tr>
+            <th>
+                @Html.DisplayNameFor(model => model.label)
+            </th>
+            <th>
+                @Html.DisplayNameFor(model => model.labeled_at)
+            </th>
+            <th>
+                @Html.DisplayNameFor(model => model.source)
+            </th>
+            <th>
+                @Html.DisplayNameFor(model => model.tx)
+            </th>
+            <th></th>
+        </tr>
+    </thead>
+    <tbody>
+@foreach (var item in Model) {
+        <tr>
+            <td>
+                @Html.DisplayFor(modelItem => item.label)
+            </td>
+            <td>
+                @Html.DisplayFor(modelItem => item.labeled_at)
+            </td>
+            <td>
+                @Html.DisplayFor(modelItem => item.source)
+            </td>
+            <td>
+                @Html.DisplayFor(modelItem => item.tx.tx_id)
+            </td>
+            <td>
+                <a asp-action="Edit" asp-route-id="@item.tx_id">Edit</a> |
+                <a asp-action="Details" asp-route-id="@item.tx_id">Details</a> |
+                <a asp-action="Delete" asp-route-id="@item.tx_id">Delete</a>
+            </td>
+        </tr>
+}
+    </tbody>
+</table>

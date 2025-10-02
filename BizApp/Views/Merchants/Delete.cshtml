@@ -1,0 +1,46 @@
+@model BizApp.Models.Merchant
+@using System.Globalization
+
+@{
+    ViewData["Title"] = "Delete Merchant";
+}
+
+<h1 class="mb-3">Delete Merchant</h1>
+
+<div class="alert alert-danger d-flex align-items-center" role="alert">
+    <div>
+        <strong>Warning:</strong> This action cannot be undone. Deleting a merchant will remove it from selection lists.
+    </div>
+</div>
+
+<div class="card shadow-sm mb-3">
+  <div class="card-body">
+    <h5 class="card-title mb-3">Merchant Details</h5>
+
+    <dl class="row mb-0">
+        <dt class="col-sm-3">Name</dt>
+        <dd class="col-sm-9">@Html.DisplayFor(m => m.name)</dd>
+
+        <dt class="col-sm-3">Category</dt>
+        <dd class="col-sm-9">@Html.DisplayFor(m => m.category)</dd>
+
+        <dt class="col-sm-3">Country</dt>
+        <dd class="col-sm-9">@Html.DisplayFor(m => m.country)</dd>
+
+        <dt class="col-sm-3">Risk Level</dt>
+        <dd class="col-sm-9">@Html.DisplayFor(m => m.risk_level)</dd>
+
+        <dt class="col-sm-3">Created At (UTC)</dt>
+        <dd class="col-sm-9">
+            @Model.created_at.ToString("yyyy-MM-dd HH:mm:ss", CultureInfo.InvariantCulture)
+        </dd>
+    </dl>
+  </div>
+</div>
+
+<form asp-action="Delete" method="post" class="d-flex gap-2">
+    @Html.AntiForgeryToken()
+    <input type="hidden" asp-for="merchant_id" />
+    <button type="submit" class="btn btn-danger">Delete</button>
+    <a asp-action="Index" class="btn btn-outline-secondary">Back to List</a>
+</form>

@@ -1,0 +1,44 @@
+@model BizApp.Models.Label
+
+@{
+    ViewData["Title"] = "Edit";
+}
+
+<h1>Edit</h1>
+
+<h4>Label</h4>
+<hr />
+<div class="row">
+    <div class="col-md-4">
+        <form asp-action="Edit">
+            <div asp-validation-summary="ModelOnly" class="text-danger"></div>
+            <input type="hidden" asp-for="tx_id" />
+            <div class="form-group form-check">
+                <label class="form-check-label">
+                    <input class="form-check-input" asp-for="label" /> @Html.DisplayNameFor(model => model.label)
+                </label>
+            </div>
+            <div class="form-group">
+                <label asp-for="labeled_at" class="control-label"></label>
+                <input asp-for="labeled_at" class="form-control" />
+                <span asp-validation-for="labeled_at" class="text-danger"></span>
+            </div>
+            <div class="form-group">
+                <label asp-for="source" class="control-label"></label>
+                <input asp-for="source" class="form-control" />
+                <span asp-validation-for="source" class="text-danger"></span>
+            </div>
+            <div class="form-group">
+                <input type="submit" value="Save" class="btn btn-primary" />
+            </div>
+        </form>
+    </div>
+</div>
+
+<div>
+    <a asp-action="Index">Back to List</a>
+</div>
+
+@section Scripts {
+    @{await Html.RenderPartialAsync("_ValidationScriptsPartial");}
+}

@@ -1,0 +1,60 @@
+@model BizApp.Models.TxScore
+
+@{
+    ViewData["Title"] = "Details";
+}
+
+<h1>Details</h1>
+
+<div>
+    <h4>TxScore</h4>
+    <hr />
+    <dl class="row">
+        <dt class = "col-sm-2">
+            @Html.DisplayNameFor(model => model.score)
+        </dt>
+        <dd class = "col-sm-10">
+            @Html.DisplayFor(model => model.score)
+        </dd>
+        <dt class = "col-sm-2">
+            @Html.DisplayNameFor(model => model.label_pred)
+        </dt>
+        <dd class = "col-sm-10">
+            @Html.DisplayFor(model => model.label_pred)
+        </dd>
+        <dt class = "col-sm-2">
+            @Html.DisplayNameFor(model => model.threshold)
+        </dt>
+        <dd class = "col-sm-10">
+            @Html.DisplayFor(model => model.threshold)
+        </dd>
+        <dt class = "col-sm-2">
+            @Html.DisplayNameFor(model => model.reason_json)
+        </dt>
+        <dd class = "col-sm-10">
+            @Html.DisplayFor(model => model.reason_json)
+        </dd>
+        <dt class = "col-sm-2">
+            @Html.DisplayNameFor(model => model.explained_at)
+        </dt>
+        <dd class = "col-sm-10">
+            @Html.DisplayFor(model => model.explained_at)
+        </dd>
+        <dt class = "col-sm-2">
+            @Html.DisplayNameFor(model => model.run)
+        </dt>
+        <dd class = "col-sm-10">
+            @Html.DisplayFor(model => model.run.run_id)
+        </dd>
+        <dt class = "col-sm-2">
+            @Html.DisplayNameFor(model => model.tx)
+        </dt>
+        <dd class = "col-sm-10">
+            @Html.DisplayFor(model => model.tx.tx_id)
+        </dd>
+    </dl>
+</div>
+<div>
+    <a asp-action="Edit" asp-route-id="@Model?.tx_id">Edit</a> |
+    <a asp-action="Index">Back to List</a>
+</div>

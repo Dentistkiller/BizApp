@@ -1,0 +1,80 @@
+/* site.css */
+:root {
+    --brand: #2563eb; /* primary blue */
+    --brand-600: #1d4ed8;
+    --brand-50: #eff6ff;
+}
+
+body {
+    font-family: "Inter", system-ui, -apple-system, Segoe UI, Roboto, "Helvetica Neue", Arial, "Noto Sans", "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+}
+
+.navbar .nav-link {
+    font-weight: 500;
+}
+
+    .navbar .nav-link.active, .navbar .nav-link:hover {
+        color: var(--brand) !important;
+    }
+
+.card {
+    border-radius: 14px;
+    border: 1px solid rgba(0,0,0,.06);
+}
+
+.table th {
+    font-weight: 600;
+}
+
+.table thead th {
+    border-bottom-width: 1px;
+}
+
+.table-hover tbody tr:hover {
+    background: rgba(37,99,235,.04);
+}
+
+/* Risk badges */
+.badge-risk-flagged {
+    background: #dc2626;
+}
+
+.badge-risk-watch {
+    background: #f59e0b;
+    color: #111;
+}
+
+.badge-risk-normal {
+    background: #10b981;
+}
+
+/* Primary button tone */
+.btn-primary {
+    background: var(--brand);
+    border-color: var(--brand);
+}
+
+    .btn-primary:hover {
+        background: var(--brand-600);
+        border-color: var(--brand-600);
+    }
+
+/* Forms */
+.form-control, .form-select {
+    border-radius: 10px;
+}
+
+/* Card section headers */
+.section-title {
+    font-weight: 600;
+    letter-spacing: .2px;
+}
+
+/* Subtle page header */
+.page-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 1rem;
+}
+s

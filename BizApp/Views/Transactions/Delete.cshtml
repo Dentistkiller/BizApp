@@ -1,0 +1,84 @@
+@model BizApp.Models.Transaction
+@using System.Globalization
+
+@functions {
+    string Hex(byte[]? b) =>
+        (b == null || b.Length == 0)
+            ? "(none)"
+            : BitConverter.ToString(b).Replace("-", "").ToLowerInvariant();
+
+    string Short(string s, int n = 16) =>
+        string.IsNullOrEmpty(s) ? "" : (s.Length <= n ? s : s[..n] + "…");
+}
+
+@{
+    ViewData["Title"] = "Delete Transaction";
+
+    var devHex = Hex(Model.device_id_hash);
+    var ipHex = Hex(Model.ip_hash);
+
+    var customerLabel = Model.customer?.name ?? $"Customer #{Model.customer_id}";
+    var merchantLabel = Model.merchant?.name ?? $"Merchant #{Model.merchant_id}";
+}
+
+<h1 class="mb-2">Delete Transaction</h1>
+<p class="text-muted">Tx ID: <strong>@Model.tx_id</strong></p>
+
+<div class="alert alert-warning d-flex align-items-center" role="alert">
+    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" class="me-2" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true">
+        <path d="M8.982 1.566a1.13 1.13 0 0 0-1.964 0L.165 13.233c-.457.778.091 1.767.982 1.767h13.706c.89 0 1.438-.99.982-1.767L8.982 1.566zM8 5c.535 0 .954.462.9.995l-.35 3.507a.552.552 0 0 1-1.1 0L7.1 5.995A.905.905 0 0 1 8 5zm.002 6a1 1 0 1 1-2.002 0 1 1 0 0 1 2.002 0z" />
+    </svg>
+    <div>
+        Are you sure you want to permanently delete this transaction? This action cannot be undone.
+    </div>
+</div>
+
+<div class="card shadow-sm mb-4">
+    <div class="card-body">
+        <dl class="row mb-0">
+            <dt class="col-sm-3">Amount</dt>
+            <dd class="col-sm-9">@Model.amount @Model.currency</dd>
+
+            <dt class="col-sm-3">Time (UTC)</dt>
+            <dd class="col-sm-9">@Model.tx_utc</dd>
+
+            <dt class="col-sm-3">Entry Mode</dt>
+            <dd class="col-sm-9">@Model.entry_mode</dd>
+
+            <dt class="col-sm-3">Channel</dt>
+            <dd class="col-sm-9">@Model.channel</dd>
+
+            <dt class="col-sm-3">Status</dt>
+            <dd class="col-sm-9">@Model.status</dd>
+
+            <dt class="col-sm-3">Customer</dt>
+            <dd class="col-sm-9">@customerLabel</dd>
+
+            <dt class="col-sm-3">Card</dt>
+            <dd class="col-sm-9">@Model.card?.network ••••@Model.card?.last4 (@Model.card?.card_id)</dd>
+
+            <dt class="col-sm-3">Merchant</dt>
+            <dd class="col-sm-9">@merchantLabel</dd>
+
+            <dt class="col-sm-3">Device ID Hash</dt>
+            <dd class="col-sm-9">
+                <code title="@devHex">@Short(devHex)</code>
+            </dd>
+
+            <dt class="col-sm-3">IP Hash</dt>
+            <dd class="col-sm-9">
+                <code title="@ipHex">@Short(ipHex)</code>
+            </dd>
+
+            <dt class="col-sm-3">Latitude / Longitude</dt>
+            <dd class="col-sm-9">@Model.lat&nbsp;/&nbsp;@Model.lon</dd>
+        </dl>
+    </div>
+</div>
+
+<form asp-action="Delete" method="post" class="d-flex align-items-center gap-2">
+    @Html.AntiForgeryToken()
+    <input type="hidden" asp-for="tx_id" />
+    <button type="submit" class="btn btn-danger">Delete</button>
+    <a asp-action="Index" class="btn btn-outline-secondary">Cancel</a>
+</form>
