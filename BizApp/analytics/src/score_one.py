@@ -3,10 +3,12 @@ import os, sys, json, joblib
 import pandas as pd
 from sqlalchemy import text
 from datetime import datetime, timedelta
-from common import sql_engine
-from features import engineer
+from .common import sql_engine
+from .features import engineer
 
-MODEL_PATH = os.getenv("MODEL_PATH", "models/model_kaggle.pkl")
+
+
+MODEL_PATH = os.getenv("MODEL_PATH", "analytics/models/model_kaggle.pkl")
 TS_FMT = "%Y-%m-%d %H:%M:%S"
 
 def load_bundle():
