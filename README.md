@@ -14,6 +14,7 @@ With VeriPay’s architecture, every transaction gets a risk score and (optional
 
 ---
 
+
 ## Contents
 
 * [Features](#features)
