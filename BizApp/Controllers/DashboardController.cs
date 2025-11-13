@@ -92,13 +92,13 @@ namespace BizApp.Controllers
                 .Where(t => string.Compare(t.tx_utc, dayAgoStr) >= 0)
                 .SumAsync(t => (decimal?)t.amount) ?? 0m;
 
-            // Latest Run info
+            // Latest Run info (no longer shown on dashboard, but kept here if you still use it elsewhere)
             var run = await _db.Runs
                 .AsNoTracking()
                 .OrderByDescending(r => r.run_id)
                 .FirstOrDefaultAsync();
 
-            // Top merchants (last 7 days) counting tx if tx_utc OR labeled_at is in window
+            // Top merchants (last 7 days) counting tx if tx_utc OR labeled_at is in window (for right-side card)
             var merchantAgg = await (
                 from t in _db.Transactions.AsNoTracking()
                 join m in _db.Merchants.AsNoTracking() on t.merchant_id equals m.merchant_id
@@ -219,8 +219,8 @@ namespace BizApp.Controllers
             return Json(series);
         }
 
-
         // GET: /Dashboard/TopMerchantsJson?days=30&limit=5&minTx=20
+        // Range-based (still used by server-side card if needed elsewhere)
         [HttpGet]
         public async Task<IActionResult> TopMerchantsJson(int days = 30, int limit = 5, int minTx = 20)
         {
@@ -258,5 +258,75 @@ namespace BizApp.Controllers
 
             return Json(rows);
         }
+
+        // NEW: GET /Dashboard/FlagBreakdownAllTimeJson
+        [HttpGet]
+        public async Task<IActionResult> FlagBreakdownAllTimeJson()
+        {
+            var total = await _db.Transactions
+                .AsNoTracking()
+                .CountAsync();
+
+            var flagged = await (
+                from t in _db.Transactions.AsNoTracking()
+                join s in _db.TxScores.AsNoTracking() on t.tx_id equals s.tx_id into sgj
+                from s in sgj.DefaultIfEmpty()
+                join l in _db.Labels.AsNoTracking() on t.tx_id equals l.tx_id into lgj
+                from l in lgj.DefaultIfEmpty()
+                where (s != null && s.label_pred == true) || (l != null && l.label == true)
+                select t.tx_id
+            ).Distinct().CountAsync();
+
+            return Json(new { total, flagged });
+        }
+
+        // NEW: GET /Dashboard/TopMerchantsAllTimeJson?limit=5&minTx=20
+        [HttpGet]
+        public async Task<IActionResult> TopMerchantsAllTimeJson(int limit = 5, int minTx = 20)
+        {
+            // 1) Pull the raw rows from SQL
+            var raw = await (
+                from t in _db.Transactions.AsNoTracking()
+                join m in _db.Merchants.AsNoTracking() on t.merchant_id equals m.merchant_id
+                join s in _db.TxScores.AsNoTracking() on t.tx_id equals s.tx_id into sgj
+                from s in sgj.DefaultIfEmpty()
+                join l in _db.Labels.AsNoTracking() on t.tx_id equals l.tx_id into lgj
+                from l in lgj.DefaultIfEmpty()
+                select new
+                {
+                    MerchantId = t.merchant_id,
+                    MerchantName = m.name,
+                    Score = s,
+                    Label = l
+                })
+                .ToListAsync();
+
+            // 2) Group + aggregate in memory (LINQ to Objects)
+            var grouped = raw
+                .GroupBy(x => new { x.MerchantId, x.MerchantName })
+                .Select(g =>
+                {
+                    var total = g.Count();
+                    var flagged = g.Count(x =>
+                        (x.Score != null && x.Score.label_pred == true) ||
+                        (x.Label != null && x.Label.label == true));
+
+                    return new
+                    {
+                        merchant = g.Key.MerchantName,
+                        total,
+                        flagged,
+                        rate = total > 0 ? (double)flagged / total : 0.0
+                    };
+                })
+                .Where(x => x.total >= minTx)
+                .OrderByDescending(x => x.rate)
+                .ThenByDescending(x => x.flagged)
+                .Take(limit)
+                .ToList();
+
+            return Json(grouped);
+        }
+
     }
 }

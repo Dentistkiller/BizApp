@@ -109,23 +109,33 @@
     </div>
 </div>
 
-<div class="card shadow-sm p-3 mt-4">
-    <h5 class="mb-2">Latest Model Run</h5>
-    @if (Model.LatestRunId.HasValue)
-    {
-        <div class="row g-2 small">
-            <div class="col-md-4">Run Id: <b>@Model.LatestRunId</b></div>
-            <div class="col-md-4">Model: <b>@Model.LatestModelVersion</b></div>
-            <div class="col-md-4 text-md-end">
-                <span class="text-muted">Started:</span> @Model.LatestRunStarted
-                <span class="text-muted ms-2">Finished:</span> @Model.LatestRunFinished
+<!-- New all-time charts row -->
+<div class="row g-4 mt-4">
+    <div class="col-lg-6">
+        <div class="card shadow-sm p-3 h-100">
+            <h5 class="mb-3">Flag outcome breakdown (All time)</h5>
+            <div class="text-muted small mb-2">
+                Distribution of all transactions ever processed.
+            </div>
+            <canvas id="flagBreakdownChart" height="180" aria-label="Flag outcome breakdown (all time)"></canvas>
+        </div>
+    </div>
+    <div class="col-lg-6">
+        <div class="card shadow-sm p-3 h-100">
+            <div class="d-flex align-items-center justify-content-between mb-2">
+                <h5 class="mb-0">Top merchants risk (All time)</h5>
+            </div>
+            <div class="position-relative">
+                <canvas id="topMerchantsChart" height="180" aria-label="Top merchants risk (all time)"></canvas>
+                <div id="topMerchantsEmpty" class="text-center text-muted py-4 d-none">
+                    <i class="bi bi-inbox me-1"></i>No merchant activity.
+                </div>
+                <div id="topMerchantsError" class="alert alert-danger d-none mt-2 mb-0">
+                    Could not load merchant risk data. Please try again.
+                </div>
             </div>
         </div>
-    }
-    else
-    {
-        <div class="text-muted">No runs yet.</div>
-    }
+    </div>
 </div>
 
 @section Scripts {
@@ -138,14 +148,21 @@
     <script>
         (function () {
             const dailyUrl = (days) => '@Url.Action("DailyFlags", "Dashboard")' + `?days=${days}`;
+            const flagBreakdownUrl = '@Url.Action("FlagBreakdownAllTimeJson", "Dashboard")';
+            const topMerchantsAllTimeUrl = '@Url.Action("TopMerchantsAllTimeJson", "Dashboard")' + `?limit=5&minTx=20`;
+
             const daysSelect = document.getElementById('daysSelect');
             const refreshBtn = document.getElementById('refreshBtn');
             const chartLoading = document.getElementById('chartLoading');
             const chartEmpty = document.getElementById('chartEmpty');
             const chartError = document.getElementById('chartError');
             const topDays = document.getElementById('topDays');
+            const topMerchantsEmpty = document.getElementById('topMerchantsEmpty');
+            const topMerchantsError = document.getElementById('topMerchantsError');
 
-            let chart;
+            let chart;            // daily totals vs flagged
+            let flagChart;        // all-time breakdown
+            let merchantsChart;   // all-time top merchants
 
             function showState({ loading = false, empty = false, error = false }) {
                 chartLoading.classList.toggle('d-none', !loading);
@@ -160,6 +177,7 @@
                 return g;
             }
 
+            // ===== Chart 1: Daily totals vs flagged (range) =====
             async function loadChart(days) {
                 showState({ loading: true });
                 try {
@@ -230,19 +248,152 @@
                 }
             }
 
+            // ===== Chart 2: Flag breakdown (all time) =====
+            async function initFlagBreakdownChart() {
+                const canvas = document.getElementById('flagBreakdownChart');
+                if (!canvas) return;
+
+                try {
+                    const res = await fetch(flagBreakdownUrl, { cache: 'no-store' });
+                    if (!res.ok) throw new Error('HTTP ' + res.status);
+                    const data = await res.json();
+
+                    const total = data.total || 0;
+                    const flagged = data.flagged || 0;
+                    const clean = Math.max(total - flagged, 0);
+
+                    if (flagChart) flagChart.destroy();
+
+                    flagChart = new Chart(canvas.getContext('2d'), {
+                        type: 'doughnut',
+                        data: {
+                            labels: ['Flagged', 'Not flagged'],
+                            datasets: [{
+                                data: [flagged, clean],
+                                backgroundColor: [
+                                    'rgba(220,53,69,0.8)',
+                                    'rgba(25,135,84,0.8)'
+                                ],
+                                borderWidth: 1
+                            }]
+                        },
+                        options: {
+                            plugins: {
+                                legend: { position: 'bottom' },
+                                tooltip: {
+                                    callbacks: {
+                                        label: (item) => {
+                                            const value = item.parsed;
+                                            const pct = total > 0 ? ((value / total) * 100).toFixed(1) : 0;
+                                            return ` ${item.label}: ${value} (${pct}%)`;
+                                        }
+                                    }
+                                }
+                            },
+                            cutout: '65%'
+                        }
+                    });
+                } catch (err) {
+                    console.error('Flag breakdown load error', err);
+                    if (flagChart) {
+                        flagChart.destroy();
+                        flagChart = null;
+                    }
+                }
+            }
+
+            // ===== Chart 3: Top merchants risk (all time) =====
+            async function loadTopMerchantsChart() {
+                const canvas = document.getElementById('topMerchantsChart');
+                if (!canvas) return;
+
+                topMerchantsEmpty.classList.add('d-none');
+                topMerchantsError.classList.add('d-none');
+
+                try {
+                    const res = await fetch(topMerchantsAllTimeUrl, { cache: 'no-store' });
+                    if (!res.ok) throw new Error('HTTP ' + res.status);
+                    const rows = await res.json();
+
+                    if (!Array.isArray(rows) || rows.length === 0) {
+                        if (merchantsChart) merchantsChart.destroy();
+                        topMerchantsEmpty.classList.remove('d-none');
+                        return;
+                    }
+
+                    const labels = rows.map(r => r.merchant);
+                    const rates = rows.map(r => (r.rate * 100)); // to percent
+
+                    if (merchantsChart) merchantsChart.destroy();
+
+                    merchantsChart = new Chart(canvas.getContext('2d'), {
+                        type: 'bar',
+                        data: {
+                            labels,
+                            datasets: [{
+                                label: '% flagged',
+                                data: rates,
+                                borderWidth: 1
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            plugins: {
+                                legend: { display: false },
+                                tooltip: {
+                                    callbacks: {
+                                        label: (ctx) => ` ${ctx.parsed.y.toFixed(1)}% flagged`
+                                    }
+                                }
+                            },
+                            scales: {
+                                x: {
+                                    ticks: { autoSkip: false }
+                                },
+                                y: {
+                                    beginAtZero: true,
+                                    ticks: {
+                                        callback: (v) => v + '%'
+                                    }
+                                }
+                            }
+                        }
+                    });
+                } catch (err) {
+                    console.error('Top merchants chart error', err);
+                    if (merchantsChart) merchantsChart.destroy();
+                    topMerchantsError.classList.remove('d-none');
+                }
+            }
+
             // Wire up controls
             daysSelect.addEventListener('change', () => {
                 const d = daysSelect.value;
-                topDays.textContent = d;
-                loadChart(d);
+                topDays.textContent = d;      // only affects the text label for the list card
+                loadChart(d);                 // update main daily chart
             });
-            refreshBtn.addEventListener('click', () => loadChart(daysSelect.value));
+
+            refreshBtn.addEventListener('click', () => {
+                const d = daysSelect.value;
+                loadChart(d);
+                initFlagBreakdownChart();     // refresh all-time breakdown
+                loadTopMerchantsChart();      // refresh all-time merchants chart
+            });
 
             // Initial load
-            loadChart(daysSelect.value);
+            const initialDays = daysSelect.value;
+            loadChart(initialDays);
+            initFlagBreakdownChart();
+            loadTopMerchantsChart();
 
-            // Optional: auto-refresh every 60s (disable if not needed)
-            // setInterval(() => loadChart(daysSelect.value), 60000);
+            // Optional: auto-refresh
+            // setInterval(() => {
+            //     const d = daysSelect.value;
+            //     loadChart(d);
+            //     initFlagBreakdownChart();
+            //     loadTopMerchantsChart();
+            // }, 60000);
         })();
     </script>
 }
