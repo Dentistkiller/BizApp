@@ -54,9 +54,7 @@
 
                 <!-- Right navigation: Theme + Auth -->
                 <div class="d-flex align-items-center gap-2">
-                    <button id="themeToggle" type="button" class="btn btn-outline-secondary btn-sm" title="Toggle theme">
-                        <i class="bi bi-moon-stars"></i>
-                    </button>
+
 
                     @if (User.Identity?.IsAuthenticated ?? false)
                     {
