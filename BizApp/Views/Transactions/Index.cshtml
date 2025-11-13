@@ -130,6 +130,13 @@
                                 <a asp-action="Delete" asp-route-id="@t.tx_id" class="btn btn-outline-danger">
                                     <i class="bi bi-trash"></i>
                                 </a>
+                                <form method="post" asp-action="ScoreNow" class="d-inline">
+                                    @Html.AntiForgeryToken()
+                                    <input type="hidden" name="id" value="@t.tx_id" />
+                                    <button type="submit" class="btn btn-warning">
+                                        <i class="bi bi-activity me-1"></i> Score Now
+                                    </button>
+                                </form>
                             </div>
                         </td>
                     </tr>

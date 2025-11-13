@@ -22,6 +22,8 @@ public class AuthIndexVm
     // New card form
     public NewCardVm NewCard { get; set; } = new();
 
+    public bool FaceEnabled { get; set; }
+
     public class CardRow
     {
         public long CardId { get; set; }

@@ -50,6 +50,15 @@
                             We store only a one-way hash of your phone. We cannot display the original number.
                         </div>
                     </div>
+                    @if (Model.FaceEnabled)
+                    {
+                        <span class="badge text-bg-success">Face ID enabled</span>
+                    }
+                    else
+                    {
+                        <a asp-action="EnrollFace" class="badge text-bg-warning text-decoration-none">Enable Face ID</a>
+                    }
+
 
                     <div class="col-12 d-flex gap-2">
                         <button class="btn btn-primary" type="submit">Save Profile</button>

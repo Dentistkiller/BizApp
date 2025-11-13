@@ -8,14 +8,23 @@ using BizApp.Data;
 using BizApp.Models;
 using BizApp.Utils;
 using BizApp.ViewModels;
+using Microsoft.Extensions.Logging;
 
 namespace BizApp.Controllers;
 
-[Authorize] // default: logged-in only
+[Authorize]
 public class AuthController : Controller
 {
     private readonly FraudDbContext _db;
-    public AuthController(FraudDbContext db) { _db = db; }
+    private readonly IConfiguration _cfg;
+    private readonly ILogger<AuthController> _logger;
+
+    public AuthController(FraudDbContext db, IConfiguration cfg, ILogger<AuthController> logger)
+    {
+        _db = db;
+        _cfg = cfg;
+        _logger = logger;
+    }
 
     // ---------- Landing Page ----------
     [HttpGet]
@@ -35,6 +44,7 @@ public class AuthController : Controller
             CustomerId = cust.customer_id,
             Name = cust.name,
             CreatedAt = cust.created_at,
+            // Face-related fields removed
             Cards = cust.Cards
                 .OrderBy(c => c.card_id)
                 .Select(c => new AuthIndexVm.CardRow
@@ -51,7 +61,7 @@ public class AuthController : Controller
         return View(vm);
     }
 
-    // Update profile (name + optional phone hash)
+    // ---------- Update profile ----------
     [HttpPost]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> UpdateProfile(AuthIndexVm vm)
@@ -82,36 +92,7 @@ public class AuthController : Controller
         return RedirectToAction(nameof(Index));
     }
 
-    // Create a new card for the logged-in customer
-    [HttpPost]
-    [ValidateAntiForgeryToken]
-    public async Task<IActionResult> CreateCard(AuthIndexVm.NewCardVm vm)
-    {
-        var cidStr = User.FindFirstValue(ClaimTypes.NameIdentifier);
-        if (!long.TryParse(cidStr, out var cid)) return RedirectToAction("Login");
-
-        if (!ModelState.IsValid)
-        {
-            TempData["CardError"] = "Please fill all required card fields correctly.";
-            return RedirectToAction(nameof(Index));
-        }
-
-        var card = new Card
-        {
-            customer_id = cid,
-            network = (vm.Network ?? "Visa").Trim(),
-            last4 = (vm.Last4 ?? "").Trim(),
-            issue_country = (vm.IssueCountry ?? "ZA").Trim()
-        };
-
-        _db.Cards.Add(card);
-        await _db.SaveChangesAsync();
-
-        TempData["CardOk"] = $"Card •••• {card.last4} added.";
-        return RedirectToAction(nameof(Index));
-    }
-
-    // ---------- Public endpoints (Register/Login/Logout) ----------
+    // ---------- Public endpoints ----------
     [HttpGet, AllowAnonymous]
     public IActionResult Register() => View();
 
@@ -174,6 +155,7 @@ public class AuthController : Controller
             return View(vm);
         }
 
+        // Direct sign-in (no face step-up)
         await SignInAsync(cust, vm.RememberMe);
 
         if (!string.IsNullOrWhiteSpace(returnUrl) && Url.IsLocalUrl(returnUrl))
@@ -182,7 +164,8 @@ public class AuthController : Controller
         return RedirectToAction(nameof(Index));
     }
 
-    [HttpPost, ValidateAntiForgeryToken]
+    [HttpPost]
+    [ValidateAntiForgeryToken]
     public async Task<IActionResult> Logout()
     {
         await HttpContext.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
@@ -192,13 +175,13 @@ public class AuthController : Controller
     private async Task SignInAsync(Customer cust, bool persistent = true)
     {
         var claims = new List<Claim>
-    {
-        new Claim(ClaimTypes.NameIdentifier, cust.customer_id.ToString()),
-        new Claim(ClaimTypes.Name, cust.name ?? $"Customer {cust.customer_id}")
-    };
+        {
+            new Claim(ClaimTypes.NameIdentifier, cust.customer_id.ToString()),
+            new Claim(ClaimTypes.Name, cust.name ?? $"Customer {cust.customer_id}")
+        };
 
         if (cust.is_admin)
-            claims.Add(new Claim(ClaimTypes.Role, "Admin"));  // <-- add role
+            claims.Add(new Claim(ClaimTypes.Role, "Admin"));
 
         var id = new ClaimsIdentity(claims, CookieAuthenticationDefaults.AuthenticationScheme);
         var principal = new ClaimsPrincipal(id);
@@ -213,4 +196,52 @@ public class AuthController : Controller
             });
     }
 
+    // ---------- Cards ----------
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> CreateCard(string Network, string Last4, string IssueCountry)
+    {
+        var cidStr = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        if (!long.TryParse(cidStr, out var cid))
+            return RedirectToAction("Login");
+
+        if (string.IsNullOrWhiteSpace(Last4) || Last4.Length != 4 || !Last4.All(char.IsDigit))
+        {
+            TempData["CardError"] = "Last 4 digits must be exactly 4 numbers.";
+            return RedirectToAction(nameof(Index));
+        }
+
+        if (string.IsNullOrWhiteSpace(Network))
+        {
+            TempData["CardError"] = "Card network is required.";
+            return RedirectToAction(nameof(Index));
+        }
+
+        if (string.IsNullOrWhiteSpace(IssueCountry) || IssueCountry.Length != 2)
+        {
+            TempData["CardError"] = "Issue country must be 2-letter ISO code (e.g., ZA).";
+            return RedirectToAction(nameof(Index));
+        }
+
+        var customer = await _db.Customers.Include(c => c.Cards).FirstOrDefaultAsync(c => c.customer_id == cid);
+        if (customer == null)
+        {
+            TempData["CardError"] = "Customer not found.";
+            return RedirectToAction(nameof(Index));
+        }
+
+        var card = new Card
+        {
+            customer_id = cid,
+            network = Network.Trim(),
+            last4 = Last4.Trim(),
+            issue_country = IssueCountry.ToUpperInvariant().Trim()
+        };
+
+        _db.Cards.Add(card);
+        await _db.SaveChangesAsync();
+
+        TempData["CardOk"] = "Card added successfully.";
+        return RedirectToAction(nameof(Index));
+    }
 }

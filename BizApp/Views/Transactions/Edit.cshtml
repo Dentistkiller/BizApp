@@ -1,5 +1,6 @@
 @model BizApp.Models.Transaction
 @using System.Globalization
+@using Microsoft.AspNetCore.Mvc.Rendering
 
 @{
     ViewData["Title"] = "Edit Transaction";
@@ -14,6 +15,13 @@
 
     var devHex = Hex(Model?.device_id_hash);
     var ipHex = Hex(Model?.ip_hash);
+
+    var isAdmin = (bool?)ViewBag.IsAdmin == true;
+    var customerList = ViewData["customer_id"] as SelectList;
+    string? selectedCustomerId =
+        customerList?.SelectedValue?.ToString()
+        ?? customerList?.FirstOrDefault()?.Value;
+    string customerDisplayName = (ViewBag.CustomerName as string) ?? customerList?.FirstOrDefault()?.Text ?? "My Account";
 }
 
 <h1 class="mb-1">Edit Transaction</h1>
@@ -22,45 +30,71 @@
 
 <div class="row">
     <div class="col-lg-7">
-        <form asp-action="Edit" method="post" id="editForm">
+        <!-- keep native validation + unobtrusive -->
+        <form asp-action="Edit" method="post" id="editForm" novalidate>
             @Html.AntiForgeryToken()
             <div asp-validation-summary="ModelOnly" class="text-danger"></div>
             <input type="hidden" asp-for="tx_id" />
 
+            <!-- Customer (scoped) -->
             <div class="mb-3">
                 <label asp-for="customer_id" class="form-label">Customer</label>
-                <select asp-for="customer_id" class="form-select" asp-items="ViewBag.customer_id"></select>
+
+                @if (isAdmin)
+                {
+                    <!-- Admin: free to choose any customer -->
+                    <select asp-for="customer_id" class="form-select" asp-items="ViewBag.customer_id" required>
+                        <option value="">-- Select customer --</option>
+                    </select>
+                }
+                else
+                {
+                    <!-- Non-admin: display name only + hidden ID -->
+                    <input type="text" class="form-control" value="@customerDisplayName" readonly />
+                    <input asp-for="customer_id" type="hidden" value="@selectedCustomerId" />
+                }
+
                 <span asp-validation-for="customer_id" class="text-danger"></span>
             </div>
 
+            <!-- Card (limited to owner unless admin) -->
             <div class="mb-3">
                 <label asp-for="card_id" class="form-label">Card</label>
-                <select asp-for="card_id" class="form-select" asp-items="ViewBag.card_id"></select>
+                <select asp-for="card_id" class="form-select" asp-items="ViewBag.card_id" required>
+                    <option value="">-- Select card --</option>
+                </select>
                 <span asp-validation-for="card_id" class="text-danger"></span>
             </div>
 
             <div class="mb-3">
                 <label asp-for="merchant_id" class="form-label">Merchant</label>
-                <select asp-for="merchant_id" class="form-select" asp-items="ViewBag.merchant_id"></select>
+                <select asp-for="merchant_id" class="form-select" asp-items="ViewBag.merchant_id" required>
+                    <option value="">-- Select merchant --</option>
+                </select>
                 <span asp-validation-for="merchant_id" class="text-danger"></span>
             </div>
 
             <div class="row g-3">
                 <div class="col-md-6">
                     <label asp-for="amount" class="form-label">Amount</label>
-                    <input asp-for="amount" class="form-control" inputmode="decimal" />
+                    <input asp-for="amount" class="form-control" inputmode="decimal" min="0.01" step="0.01" required />
                     <span asp-validation-for="amount" class="text-danger"></span>
                 </div>
                 <div class="col-md-6">
                     <label asp-for="currency" class="form-label">Currency</label>
-                    <input asp-for="currency" class="form-control" />
+                    <input asp-for="currency" class="form-control"
+                           maxlength="3" pattern="^[A-Z]{3}$" required
+                           aria-describedby="currencyHelp" />
+                    <div id="currencyHelp" class="form-text">3-letter ISO (e.g., ZAR, USD, EUR)</div>
                     <span asp-validation-for="currency" class="text-danger"></span>
                 </div>
             </div>
 
             <div class="mb-1">
                 <label asp-for="tx_utc" class="form-label">Time (UTC)</label>
-                <input asp-for="tx_utc" class="form-control" id="txUtc" />
+                <input asp-for="tx_utc" class="form-control" id="txUtc"
+                       pattern="^\d{4}-\d{2}-\d{2}\s\d{2}:\d{2}:\d{2}$"
+                       placeholder="yyyy-MM-dd HH:mm:ss" required />
                 <span class="form-text">Format: <code>yyyy-MM-dd HH:mm:ss</code></span>
                 <span asp-validation-for="tx_utc" class="text-danger"></span>
             </div>
@@ -73,12 +107,12 @@
             <div class="row g-3">
                 <div class="col-md-6">
                     <label asp-for="entry_mode" class="form-label">Entry Mode</label>
-                    <input asp-for="entry_mode" class="form-control" />
+                    <input asp-for="entry_mode" class="form-control" maxlength="20" />
                     <span asp-validation-for="entry_mode" class="text-danger"></span>
                 </div>
                 <div class="col-md-6">
                     <label asp-for="channel" class="form-label">Channel</label>
-                    <input asp-for="channel" class="form-control" />
+                    <input asp-for="channel" class="form-control" maxlength="20" />
                     <span asp-validation-for="channel" class="text-danger"></span>
                 </div>
             </div>
@@ -86,19 +120,19 @@
             <div class="row g-3 mt-1">
                 <div class="col-md-6">
                     <label asp-for="lat" class="form-label">Latitude</label>
-                    <input asp-for="lat" class="form-control" id="latInput" />
+                    <input asp-for="lat" class="form-control" id="latInput" step="0.000001" min="-90" max="90" />
                     <span asp-validation-for="lat" class="text-danger"></span>
                 </div>
                 <div class="col-md-6">
                     <label asp-for="lon" class="form-label">Longitude</label>
-                    <input asp-for="lon" class="form-control" id="lonInput" />
+                    <input asp-for="lon" class="form-control" id="lonInput" step="0.000001" min="-180" max="180" />
                     <span asp-validation-for="lon" class="text-danger"></span>
                 </div>
             </div>
 
             <div class="mt-3">
                 <label asp-for="status" class="form-label">Status</label>
-                <input asp-for="status" class="form-control" />
+                <input asp-for="status" class="form-control" maxlength="20" required />
                 <span asp-validation-for="status" class="text-danger"></span>
             </div>
 
@@ -125,8 +159,8 @@
                 </div>
 
                 <div class="text-muted small mt-3">
-                    These hashes are stored as <code>VARBINARY</code> and are shown read-only here.
-                    If you need to regenerate them from the browser, do it on the Create form or add a specialized action.
+                    These hashes are stored as <code>VARBINARY</code> and shown read-only here.
+                    To regenerate on the client, use the Create form or a dedicated action.
                 </div>
             </div>
         </div>
@@ -152,6 +186,7 @@
 
             document.getElementById('nowBtn')?.addEventListener('click', function(){
                 txUtcEl.value = toUtcString(new Date());
+                txUtcEl.dispatchEvent(new Event('change')); // trigger unobtrusive revalidate
             });
 
             document.getElementById('locBtn')?.addEventListener('click', function(){
@@ -162,11 +197,19 @@
                 navigator.geolocation.getCurrentPosition(function(pos){
                     latEl.value = pos.coords.latitude.toFixed(6);
                     lonEl.value = pos.coords.longitude.toFixed(6);
+                    latEl.dispatchEvent(new Event('change'));
+                    lonEl.dispatchEvent(new Event('change'));
                 }, function(err){
                     console.warn('Geolocation error', err);
                     alert('Could not get your location.');
                 }, { enableHighAccuracy: true, timeout: 8000, maximumAge: 0 });
             });
+
+            // Auto-upcase currency for UX
+            const cur = document.getElementById('@Html.IdFor(m => m.currency)');
+            if (cur) {
+                cur.addEventListener('input', () => { cur.value = (cur.value || '').toUpperCase(); });
+            }
         })();
     </script>
 }

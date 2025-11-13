@@ -1,9 +1,20 @@
 @model BizApp.Models.Transaction
 @using System.Globalization
+@using Microsoft.AspNetCore.Mvc.Rendering
 
 @{
     ViewData["Title"] = "Create Transaction";
     const string TS_FMT = "yyyy-MM-dd HH:mm:ss";
+
+    var isAdmin = (bool?)ViewBag.IsAdmin == true;
+
+    // We may get a single-item SelectList for non-admins; extract the selected id safely
+    var customerList = ViewData["customer_id"] as SelectList;
+    string? selectedCustomerId =
+        customerList?.SelectedValue?.ToString()
+        ?? customerList?.FirstOrDefault()?.Value;
+
+    string customerDisplayName = (ViewBag.CustomerName as string) ?? "My Account";
 }
 
 <h1>Create Transaction</h1>
@@ -11,38 +22,60 @@
 
 <div class="row">
     <div class="col-md-6">
-        <form asp-action="Create" id="createForm">
+        <form asp-action="Create" id="createForm" novalidate>
             @Html.AntiForgeryToken()
             <div asp-validation-summary="ModelOnly" class="text-danger"></div>
 
-            <!-- Customer by NAME -->
+            <!-- Customer (scoped) -->
             <div class="form-group mb-3">
                 <label asp-for="customer_id" class="form-label">Customer</label>
-                <select asp-for="customer_id" class="form-select" asp-items="ViewBag.customer_id"></select>
+
+                @if (isAdmin)
+                {
+                    <!-- Admin: free to choose any customer -->
+                    <select asp-for="customer_id" class="form-select" asp-items="ViewBag.customer_id" required>
+                        <option value="">-- Select customer --</option>
+                    </select>
+                }
+                else
+                {
+                    <!-- Non-admin: show only your own name, lock the ID -->
+                    <input type="text" class="form-control" value="@customerDisplayName" readonly />
+                    <input asp-for="customer_id" type="hidden" value="@selectedCustomerId" />
+                }
+
+                <span asp-validation-for="customer_id" class="text-danger"></span>
             </div>
 
-            <!-- Card (friendly text) -->
+            <!-- Card (already filtered in controller for non-admins) -->
             <div class="form-group mb-3">
                 <label asp-for="card_id" class="form-label">Card</label>
-                <select asp-for="card_id" class="form-select" asp-items="ViewBag.card_id"></select>
+                <select asp-for="card_id" class="form-select" asp-items="ViewBag.card_id" required>
+                    <option value="">-- Select card --</option>
+                </select>
+                <span asp-validation-for="card_id" class="text-danger"></span>
             </div>
 
             <!-- Merchant by NAME -->
             <div class="form-group mb-3">
                 <label asp-for="merchant_id" class="form-label">Merchant</label>
-                <select asp-for="merchant_id" class="form-select" asp-items="ViewBag.merchant_id"></select>
+                <select asp-for="merchant_id" class="form-select" asp-items="ViewBag.merchant_id" required>
+                    <option value="">-- Select merchant --</option>
+                </select>
+                <span asp-validation-for="merchant_id" class="text-danger"></span>
             </div>
 
             <div class="form-group mb-3">
                 <label asp-for="amount" class="form-label">Amount</label>
-                <input asp-for="amount" class="form-control" inputmode="decimal" />
+                <input asp-for="amount" class="form-control" inputmode="decimal" min="0.01" step="0.01" required />
                 <span asp-validation-for="amount" class="text-danger"></span>
             </div>
 
             <!-- Currency defaulted to ZAR but editable -->
             <div class="form-group mb-3">
                 <label asp-for="currency" class="form-label">Currency</label>
-                <input asp-for="currency" class="form-control" value="ZAR" />
+                <input asp-for="currency" class="form-control" value="ZAR" maxlength="3" pattern="^[A-Z]{3}$" required />
+                <span class="form-text">3-letter ISO (e.g., ZAR, USD, EUR)</span>
                 <span asp-validation-for="currency" class="text-danger"></span>
             </div>
 
@@ -52,29 +85,30 @@
             <!-- entry_mode/channel defaulting (editable if you want) -->
             <div class="form-group mb-3">
                 <label asp-for="entry_mode" class="form-label">Entry Mode</label>
-                <input asp-for="entry_mode" class="form-control" value="online" />
+                <input asp-for="entry_mode" class="form-control" value="online" maxlength="20" />
                 <span asp-validation-for="entry_mode" class="text-danger"></span>
             </div>
 
             <div class="form-group mb-3">
                 <label asp-for="channel" class="form-label">Channel (source)</label>
-                <input asp-for="channel" class="form-control" value="eft" />
+                <input asp-for="channel" class="form-control" value="eft" maxlength="20" />
                 <span asp-validation-for="channel" class="text-danger"></span>
             </div>
 
-            <!-- Hidden hashes (IDs chosen to match JS below) -->
+            <!-- Hidden hashes (IDs chosen to match JS below).
+                 IMPORTANT: The model expects byte[]. We will submit Base64 in these fields. -->
             <input asp-for="device_id_hash" type="hidden" id="device_id_hash" />
             <input asp-for="ip_hash" type="hidden" id="ip_hash" />
 
             <div class="row">
                 <div class="col-md-6 mb-3">
                     <label asp-for="lat" class="form-label">Latitude</label>
-                    <input asp-for="lat" class="form-control" id="latInput" />
+                    <input asp-for="lat" class="form-control" id="latInput" step="0.000001" min="-90" max="90" />
                     <span asp-validation-for="lat" class="text-danger"></span>
                 </div>
                 <div class="col-md-6 mb-3">
                     <label asp-for="lon" class="form-label">Longitude</label>
-                    <input asp-for="lon" class="form-control" id="lonInput" />
+                    <input asp-for="lon" class="form-control" id="lonInput" step="0.000001" min="-180" max="180" />
                     <span asp-validation-for="lon" class="text-danger"></span>
                 </div>
             </div>
@@ -131,6 +165,12 @@
                     alert('Could not get your location.');
                 }, { enableHighAccuracy: true, timeout: 8000, maximumAge: 0 });
             });
+
+            // Auto-upcase currency for UX
+            const cur = document.getElementById('@Html.IdFor(m => m.currency)');
+            if (cur) {
+                cur.addEventListener('input', () => { cur.value = (cur.value || '').toUpperCase(); });
+            }
         })();
     </script>
 
@@ -140,19 +180,32 @@
             function sha256Hex(str) {
                 return CryptoJS.SHA256(str).toString(CryptoJS.enc.Hex); // hex string
             }
+            function hexToBytes(hex) {
+                const out = [];
+                for (let i = 0; i < hex.length; i += 2) out.push(parseInt(hex.substr(i, 2), 16));
+                return new Uint8Array(out);
+            }
+            function bytesToBase64(bytes) {
+                // Convert to binary string first, then btoa
+                let bin = '';
+                bytes.forEach(b => { bin += String.fromCharCode(b); });
+                return btoa(bin);
+            }
+            function hexToBase64(hex) {
+                return bytesToBase64(hexToBytes(hex));
+            }
 
             // Stable device fingerprint (client-side) persisted in localStorage
             function getStableDeviceId() {
                 let devId = localStorage.getItem('device_id');
                 if (!devId) {
-                    // collect a few hints to make it *semi* stable without being invasive
                     const hints = [
                         navigator.userAgent || '',
                         navigator.language || '',
-                        screen.width + 'x' + screen.height,
-                        Intl.DateTimeFormat().resolvedOptions().timeZone || ''
+                        (screen.width + 'x' + screen.height),
+                        (Intl.DateTimeFormat().resolvedOptions().timeZone || '')
                     ].join('|');
-                    devId = hints + '|' + crypto.randomUUID();
+                    devId = hints + '|' + (crypto.randomUUID ? crypto.randomUUID() : (Math.random().toString(36).slice(2)));
                     localStorage.setItem('device_id', devId);
                 }
                 return devId;
@@ -161,14 +214,21 @@
             const deviceField = document.getElementById('device_id_hash');
             const ipField     = document.getElementById('ip_hash');
 
-            // Fill device_id_hash (hex)
-            deviceField.value = sha256Hex(getStableDeviceId());
+            // Precompute hex hashes
+            const deviceHex = sha256Hex(getStableDeviceId());
+            deviceField.dataset.hex = deviceHex; // store hex for later conversion
 
             // Fill ip_hash (hex) using ipify; fallback to 'unknown'
             fetch('https://api.ipify.org?format=json', { cache: 'no-store' })
                 .then(r => r.ok ? r.json() : Promise.reject(r.status))
-                .then(data => { ipField.value = sha256Hex(data.ip || 'unknown'); })
-                .catch(() => { ipField.value = sha256Hex('unknown'); });
+                .then(data => { ipField.dataset.hex = sha256Hex(data.ip || 'unknown'); })
+                .catch(() => { ipField.dataset.hex = sha256Hex('unknown'); });
+
+            // Before submit: convert hex -> Base64 so MVC binds to byte[]
+            document.getElementById('createForm').addEventListener('submit', function () {
+                if (deviceField.dataset.hex) deviceField.value = hexToBase64(deviceField.dataset.hex);
+                if (ipField.dataset.hex)     ipField.value     = hexToBase64(ipField.dataset.hex);
+            });
         })();
     </script>
 }

@@ -13,7 +13,7 @@ public partial class TxScore
     [Key]
     public long tx_id { get; set; }
 
-    public long run_id { get; set; }
+    public long? run_id { get; set; }
 
     public double score { get; set; }
 

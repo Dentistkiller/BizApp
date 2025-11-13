@@ -3,9 +3,13 @@ using System.Diagnostics;
 using System.Globalization;
 using System.IO;
 using System.Linq;
+using System.Net.Http;
+using System.Net.Http.Json;
 using System.Security.Claims;
 using System.Security.Cryptography;
 using System.Text;
+using System.Text.Json;
+using System.Threading;
 using System.Threading.Tasks;
 using BizApp.Data;
 using BizApp.Models;
@@ -13,6 +17,8 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Rendering;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging;
 
 namespace BizApp.Controllers
 {
@@ -48,12 +54,29 @@ namespace BizApp.Controllers
     public class TransactionsController : Controller
     {
         private readonly FraudDbContext _context;
-        public TransactionsController(FraudDbContext context) { _context = context; }
+        private readonly ILogger<TransactionsController> _logger;
+        private readonly IConfiguration _cfg;
+
+        public TransactionsController(FraudDbContext context, ILogger<TransactionsController> logger, IConfiguration cfg)
+        {
+            _context = context;
+            _logger = logger;
+            _cfg = cfg;
+        }
 
         private const string TS_FMT = "yyyy-MM-dd HH:mm:ss";
         private static readonly CultureInfo Ci = CultureInfo.InvariantCulture;
 
         private bool IsAdmin => User.IsInRole("Admin");
+
+        // Strong-typed request/response for scoring API
+        public sealed record ScoreRequest(long tx_id);
+        public sealed record ScoreResponse(long tx_id, double score, bool flagged);
+
+        private static readonly HttpClient _http = new HttpClient
+        {
+            Timeout = TimeSpan.FromSeconds(20)
+        };
 
         private long? CurrentCustomerId
         {
@@ -246,31 +269,59 @@ namespace BizApp.Controllers
             {
                 // Admin: may choose any customer
                 ViewData["customer_id"] = new SelectList(
-                    _context.Customers.AsNoTracking().OrderBy(c => c.name).Select(c => new { c.customer_id, c.name }),
+                    _context.Customers.AsNoTracking()
+                        .OrderBy(c => c.name)
+                        .Select(c => new { c.customer_id, c.name }),
                     "customer_id", "name"
                 );
+
+                // Cards (all), keep customer suffix visible for admins
+                var adminCards = _context.Cards.AsNoTracking()
+                    .OrderBy(c => c.card_id)
+                    .Select(c => new
+                    {
+                        c.card_id,
+                        label = (c.network ?? "Card") + " ••••" + (c.last4 ?? "????") + " (cust " + c.customer_id + ")"
+                    });
+                ViewData["card_id"] = new SelectList(adminCards, "card_id", "label");
+
+                ViewBag.IsAdmin = true;
             }
-
-            // Merchants by NAME
-            ViewData["merchant_id"] = new SelectList(
-                _context.Merchants.AsNoTracking().OrderBy(m => m.name).Select(m => new { m.merchant_id, m.name }),
-                "merchant_id", "name"
-            );
-
-            // Cards (show only current user's cards unless admin)
-            var cardsQuery = _context.Cards.AsNoTracking().AsQueryable();
-            if (!IsAdmin)
+            else
             {
+                // Non-admins: restrict to their customer + their cards
                 var cid = CurrentCustomerId;
-                cardsQuery = (cid is null) ? cardsQuery.Where(_ => false) : cardsQuery.Where(c => c.customer_id == cid.Value);
+                if (cid is null) return Forbid();
+
+                var me = _context.Customers.AsNoTracking()
+                    .Where(c => c.customer_id == cid.Value)
+                    .Select(c => new { c.customer_id, c.name })
+                    .FirstOrDefault();
+
+                if (me is null) return Forbid();
+
+                ViewData["customer_id"] = new SelectList(new[] { me }, "customer_id", "name", me.customer_id);
+                ViewBag.CustomerName = me.name;
+                ViewBag.IsAdmin = false;
+
+                var cardsQuery = _context.Cards.AsNoTracking()
+                    .Where(c => c.customer_id == cid.Value)
+                    .OrderBy(c => c.card_id)
+                    .Select(c => new
+                    {
+                        c.card_id,
+                        label = (c.network ?? "Card") + " ••••" + (c.last4 ?? "????")
+                    });
+
+                ViewData["card_id"] = new SelectList(cardsQuery, "card_id", "label");
             }
-            ViewData["card_id"] = new SelectList(
-                cardsQuery.OrderBy(c => c.card_id).Select(c => new
-                {
-                    c.card_id,
-                    label = (c.network ?? "Card") + " ••••" + (c.last4 ?? "????") + " (cust " + c.customer_id + ")"
-                }),
-                "card_id", "label"
+
+            // Merchants by NAME (everyone may choose any merchant)
+            ViewData["merchant_id"] = new SelectList(
+                _context.Merchants.AsNoTracking()
+                    .OrderBy(m => m.name)
+                    .Select(m => new { m.merchant_id, m.name }),
+                "merchant_id", "name"
             );
 
             return View();
@@ -294,43 +345,87 @@ namespace BizApp.Controllers
             return bytes;
         }
 
-        private async Task<bool> ScoreTransactionAsync(long txId)
+        // ---- Scoring call (verifies DB upsert by reading TxScores) ----
+        // ---- Scoring call (verifies DB upsert by reading TxScores) ----
+        private async Task<(bool ok, double? score, bool? flagged, string? err)> ScoreTransactionAsync(
+            long txId, CancellationToken ct = default)
         {
             try
             {
-                var startInfo = new ProcessStartInfo
+                // Prefer appsettings.json then env var, then local fallback
+                var baseUrl = _cfg["ScoringApi:BaseUrl"]
+                              ?? Environment.GetEnvironmentVariable("ScoringApi__BaseUrl")
+                              ?? "https://analytics-1-mx8o.onrender.com";
+
+                var url = $"{baseUrl.TrimEnd('/')}/score";
+                using var req = new HttpRequestMessage(HttpMethod.Post, url)
                 {
-                    FileName = @"C:\Users\lab_services_student\AppData\Local\Programs\Python\Python313\python.exe",
-                    Arguments = $"src/score_one.py {txId}",
-                    WorkingDirectory = Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "analytics"),
-                    RedirectStandardOutput = true,
-                    RedirectStandardError = true,
-                    UseShellExecute = false,
-                    CreateNoWindow = true
+                    Content = JsonContent.Create(new { tx_id = txId })
                 };
 
-                using var p = new Process { StartInfo = startInfo };
-                p.Start();
-                var stderr = await p.StandardError.ReadToEndAsync();
-                var stdout = await p.StandardOutput.ReadToEndAsync();
-                await p.WaitForExitAsync();
+                using var resp = await _http.SendAsync(req, ct);
+                var payload = await resp.Content.ReadAsStringAsync(ct);
 
-                if (p.ExitCode != 0)
+                if (!resp.IsSuccessStatusCode)
                 {
-                    Console.Error.WriteLine($"score_one failed ({p.ExitCode}): {stderr}");
-                    return false;
+                    _logger.LogWarning("Scoring failed [{Status}] {Reason}: {Payload}",
+                        (int)resp.StatusCode, resp.ReasonPhrase, payload);
+                    return (false, null, null, $"HTTP {(int)resp.StatusCode} {resp.ReasonPhrase}");
                 }
 
-                Console.WriteLine($"score_one OK: {stdout}");
-                return true;
+                // Parse API response (for logging/echo only)
+                var dto = JsonSerializer.Deserialize<ScoreResponse>(payload,
+                    new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+
+                if (dto is null)
+                {
+                    _logger.LogWarning("Scoring returned invalid JSON: {Payload}", payload);
+                    return (false, null, null, "invalid JSON from scoring API");
+                }
+
+                _logger.LogInformation("Scoring API OK for tx={TxId}: score={Score}, flagged={Flagged}",
+                    dto.tx_id, dto.score, dto.flagged);
+
+                // Retry reading from our DB (API may be on a different connection/firewall or slightly delayed)
+                // Short backoff: 5 tries, ~1.8s total
+                const int maxTries = 5;
+                int tries = 0;
+                TxScore? saved = null;
+
+                while (tries++ < maxTries && saved is null)
+                {
+                    saved = await _context.TxScores.AsNoTracking().FirstOrDefaultAsync(x => x.tx_id == txId, ct);
+                    if (saved is null)
+                    {
+                        await Task.Delay(250 * tries, ct); // 250ms, 500ms, 750ms, ...
+                    }
+                }
+
+                if (saved is null)
+                {
+                    _logger.LogWarning(
+                        "Scoring API responded OK but TxScores has no row for tx_id={TxId}. " +
+                        "Likely DB mismatch or Azure SQL firewall. Check API /diag vs MVC connection strings.",
+                        txId);
+                    // Fall back to API values so the UI at least shows something
+                    return (false, dto.score, dto.flagged, "TxScores not written (DB mismatch or firewall)");
+                }
+
+                return (true, saved.score, saved.label_pred, null);
+            }
+            catch (TaskCanceledException)
+            {
+                return (false, null, null, "timeout/cancelled");
             }
             catch (Exception ex)
             {
-                Console.Error.WriteLine(ex);
-                return false;
+                _logger.LogError(ex, "Scoring exception for tx_id={TxId}", txId);
+                return (false, null, null, ex.Message);
             }
         }
 
+
+        // POST: Transactions/Create
         [HttpPost]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> Create([Bind("tx_id,customer_id,card_id,merchant_id,amount,currency,tx_utc,entry_mode,channel,device_id_hash,ip_hash,lat,lon,status")] Transaction transaction)
@@ -397,8 +492,16 @@ namespace BizApp.Controllers
             _context.Add(transaction);
             await _context.SaveChangesAsync();
 
-            // Score it now (best-effort)
-            _ = await ScoreTransactionAsync(transaction.tx_id);
+            // Score it now and verify that TxScores has a row
+            var (ok, score, flagged, err) = await ScoreTransactionAsync(transaction.tx_id);
+            if (ok)
+            {
+                TempData["Toast"] = $"Scored tx {transaction.tx_id}: score={score:F3}, flagged={(flagged == true ? "YES" : "no")}";
+            }
+            else
+            {
+                TempData["Toast"] = $"Scoring pending/failed for tx {transaction.tx_id}: {err}";
+            }
 
             return RedirectToAction(nameof(Index));
         }
@@ -407,7 +510,10 @@ namespace BizApp.Controllers
         public async Task<IActionResult> Edit(long? id)
         {
             if (id == null) return NotFound();
-            var transaction = await _context.Transactions.FindAsync(id);
+
+            var transaction = await _context.Transactions
+                .AsNoTracking()
+                .FirstOrDefaultAsync(t => t.tx_id == id);
             if (transaction == null) return NotFound();
 
             // Ownership check
@@ -417,20 +523,49 @@ namespace BizApp.Controllers
                 if (cid is null || transaction.customer_id != cid.Value) return Forbid();
             }
 
-            ViewData["merchant_id"] = new SelectList(
-                _context.Merchants.AsNoTracking().OrderBy(m => m.name).Select(m => new { m.merchant_id, m.name }),
-                "merchant_id", "name", transaction.merchant_id);
+            // --- Customers (for admin select or non-admin display) ---
+            if (IsAdmin)
+            {
+                ViewData["customer_id"] = new SelectList(
+                    _context.Customers.AsNoTracking()
+                        .OrderBy(c => c.name)
+                        .Select(c => new { c.customer_id, c.name }),
+                    "customer_id", "name", transaction.customer_id
+                );
+                ViewBag.IsAdmin = true;
+            }
+            else
+            {
+                var cid = transaction.customer_id;
+                var me = await _context.Customers.AsNoTracking()
+                    .Where(c => c.customer_id == cid)
+                    .Select(c => new { c.customer_id, c.name })
+                    .FirstOrDefaultAsync();
+                ViewData["customer_id"] = new SelectList(new[] { me! }, "customer_id", "name", cid);
+                ViewBag.CustomerName = me?.name ?? "My Account";
+                ViewBag.IsAdmin = false;
+            }
 
-            // Cards limited to owner unless admin
+            // --- Merchants (all) ---
+            ViewData["merchant_id"] = new SelectList(
+                _context.Merchants.AsNoTracking()
+                    .OrderBy(m => m.name)
+                    .Select(m => new { m.merchant_id, m.name }),
+                "merchant_id", "name", transaction.merchant_id
+            );
+
+            // --- Cards (owner-only unless admin) ---
             var cardsQuery = _context.Cards.AsNoTracking().AsQueryable();
             if (!IsAdmin) cardsQuery = cardsQuery.Where(c => c.customer_id == transaction.customer_id);
-            ViewData["card_id"] = new SelectList(
-                cardsQuery.OrderBy(c => c.card_id).Select(c => new
-                {
-                    c.card_id,
-                    label = (c.network ?? "Card") + " ••••" + (c.last4 ?? "????") + " (cust " + c.customer_id + ")"
-                }),
-                "card_id", "label", transaction.card_id);
+
+            var cards = cardsQuery.OrderBy(c => c.card_id).Select(c => new
+            {
+                c.card_id,
+                label = (c.network ?? "Card") + " ••••" + (c.last4 ?? "????")
+                        + (IsAdmin ? (" (cust " + c.customer_id + ")") : "")
+            });
+
+            ViewData["card_id"] = new SelectList(cards, "card_id", "label", transaction.card_id);
 
             return View(transaction);
         }
@@ -505,6 +640,30 @@ namespace BizApp.Controllers
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> DeleteConfirmed(long id)
         {
+            // Delete child entities first
+            var labels = _context.Labels.Where(l => l.tx_id == id);
+            _context.Labels.RemoveRange(labels);
+
+            var scores = _context.TxScores.Where(s => s.tx_id == id);
+            _context.TxScores.RemoveRange(scores);
+
+            // Now delete the transaction itself
+            var tx = await _context.Transactions.FindAsync(id);
+            if (tx != null)
+            {
+                _context.Transactions.Remove(tx);
+            }
+
+            await _context.SaveChangesAsync();
+            return RedirectToAction(nameof(Index));
+        }
+
+
+        // ---- Manual "Score Now" (helpful for testing a single tx) ----
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> ScoreNow(long id)
+        {
             // Ownership check unless admin
             if (!IsAdmin)
             {
@@ -514,12 +673,36 @@ namespace BizApp.Controllers
                 if (!ownerOk) return Forbid();
             }
 
-            var transaction = await _context.Transactions.FindAsync(id);
-            if (transaction != null)
+            var (ok, score, flagged, err) = await ScoreTransactionAsync(id);
+            TempData["Toast"] = ok
+                ? $"Re-scored {id}: score={score:F3}, flagged={(flagged == true ? "YES" : "no")}"
+                : $"Re-score failed for {id}: {err}";
+            return RedirectToAction(nameof(Details), new { id });
+        }
+
+        // ---- Admin backfill: score any missing rows in TxScores ----
+        [Authorize(Roles = "Admin")]
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> BackfillMissingScores(int max = 200)
+        {
+            var missing = await (
+                from t in _context.Transactions
+                join s in _context.TxScores on t.tx_id equals s.tx_id into gj
+                from s in gj.DefaultIfEmpty()
+                where s == null
+                orderby t.tx_utc descending
+                select t.tx_id
+            ).Take(max).ToListAsync();
+
+            int ok = 0, fail = 0;
+            foreach (var id in missing)
             {
-                _context.Transactions.Remove(transaction);
-                await _context.SaveChangesAsync();
+                var (ok1, _, _, _) = await ScoreTransactionAsync(id);
+                if (ok1) ok++; else fail++;
             }
+
+            TempData["Toast"] = $"Backfilled {ok} scores, {fail} failed (limit {max}).";
             return RedirectToAction(nameof(Index));
         }
     }

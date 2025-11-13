@@ -33,7 +33,7 @@ public partial class Customer
     [Column(TypeName = "varbinary(32)")]
     public byte[]? password_salt { get; set; }
 
-    public bool is_admin { get; set; } = false;   
+    public bool is_admin { get; set; } = false;
 
     public DateTime created_at { get; set; }
 
@@ -42,4 +42,6 @@ public partial class Customer
 
     [InverseProperty("customer")]
     public virtual ICollection<Transaction> Transactions { get; set; } = new List<Transaction>();
+    public string? face_person_id { get; set; }  // GUID from Azure Face "personId"
+    public bool face_enabled { get; set; } = false;
 }
