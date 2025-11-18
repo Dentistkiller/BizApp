@@ -11,17 +11,29 @@
     <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
     <link rel="stylesheet" href="~/BizApp.styles.css" asp-append-version="true" />
 
-    @* Optional: Inter font for cleaner UI *@
+    @* Optional: Inter font *@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
     <style>
-        body { font-family: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial; }
-        .navbar .nav-link { font-weight: 500; }
-        .navbar .nav-link.active, .navbar .nav-link:hover { color: var(--bs-primary) !important; }
-        .page-container { min-height: calc(100vh - 120px); }
+        body {
+            font-family: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, Arial;
+        }
+
+        .navbar .nav-link {
+            font-weight: 500;
+        }
+
+            .navbar .nav-link.active, .navbar .nav-link:hover {
+                color: var(--bs-primary) !important;
+            }
+
+        .page-container {
+            min-height: calc(100vh - 120px);
+        }
     </style>
 </head>
+
 <body>
     <header class="border-bottom bg-white">
         <nav class="navbar navbar-expand-lg container">
@@ -29,33 +41,60 @@
                 <i class="bi bi-shield-lock me-1"></i> VeriPay
             </a>
 
-            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#mainNavbar"
-                    aria-controls="mainNavbar" aria-expanded="false" aria-label="Toggle navigation">
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse"
+                    data-bs-target="#mainNavbar" aria-controls="mainNavbar"
+                    aria-expanded="false" aria-label="Toggle navigation">
                 <span class="navbar-toggler-icon"></span>
             </button>
 
             <div id="mainNavbar" class="collapse navbar-collapse">
-                <!-- Left navigation -->
+                <!-- LEFT NAV -->
                 <ul class="navbar-nav me-auto mb-2 mb-lg-0">
+
+                    <!-- Always visible -->
                     <li class="nav-item">
-                        <a class="nav-link text-dark" asp-area="" asp-controller="Home" asp-action="Index">
+                        <a class="nav-link text-dark" asp-controller="Home" asp-action="Index">
                             <i class="bi bi-house-door me-1"></i> Home
                         </a>
                     </li>
-                    <li class="nav-item"><a class="nav-link text-dark" asp-controller="Transactions" asp-action="Index"><i class="bi bi-credit-card-2-front me-1"></i> Transactions</a></li>
-                    <li class="nav-item"><a class="nav-link text-dark" asp-controller="Dashboard" asp-action="Index"><i class="bi bi-speedometer2 me-1"></i> Dashboard</a></li>
-                    <li class="nav-item"><a class="nav-link text-dark" asp-controller="Merchants" asp-action="Index"><i class="bi bi-shop me-1"></i> Merchants</a></li>
+
+                    @* Authenticated users show more *@
+                    @if (User.Identity?.IsAuthenticated ?? false)
+                    {
+                        <!-- Transactions (all logged users) -->
+                        <li class="nav-item">
+                            <a class="nav-link text-dark" asp-controller="Transactions" asp-action="Index">
+                                <i class="bi bi-credit-card-2-front me-1"></i> Transactions
+                            </a>
+                        </li>
+
+                        @* Admin-only links *@
+                        @if (User.IsInRole("Admin"))
+                        {
+                            <li class="nav-item">
+                                <a class="nav-link text-dark" asp-controller="Dashboard" asp-action="Index">
+                                    <i class="bi bi-speedometer2 me-1"></i> Dashboard
+                                </a>
+                            </li>
+
+                            <li class="nav-item">
+                                <a class="nav-link text-dark" asp-controller="Merchants" asp-action="Index">
+                                    <i class="bi bi-shop me-1"></i> Merchants
+                                </a>
+                            </li>
+                        }
+                    }
+
+                    <!-- Always visible -->
                     <li class="nav-item">
-                        <a class="nav-link text-dark" asp-area="" asp-controller="Home" asp-action="Privacy">
+                        <a class="nav-link text-dark" asp-controller="Home" asp-action="Privacy">
                             <i class="bi bi-shield-check me-1"></i> Privacy
                         </a>
                     </li>
                 </ul>
 
-                <!-- Right navigation: Theme + Auth -->
+                <!-- RIGHT NAV -->
                 <div class="d-flex align-items-center gap-2">
-
-
                     @if (User.Identity?.IsAuthenticated ?? false)
                     {
                         <a class="btn btn-outline-primary btn-sm" asp-controller="Auth" asp-action="Index">
@@ -88,28 +127,30 @@
     <footer class="border-top py-3">
         <div class="container small text-muted d-flex justify-content-between">
             <span>&copy; @DateTime.UtcNow.Year BizApp</span>
-            <a asp-area="" asp-controller="Home" asp-action="Privacy" class="link-secondary">Privacy</a>
+            <a asp-controller="Home" asp-action="Privacy" class="link-secondary">Privacy</a>
         </div>
     </footer>
 
     <script src="~/lib/jquery/dist/jquery.min.js"></script>
     <script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
     <script src="~/js/site.js" asp-append-version="true"></script>
+
     <script>
-        // Light/Dark theme toggle with persistence
+        // Light/Dark theme toggle
         (function () {
             const root = document.documentElement;
-            const stored = localStorage.getItem("theme");
-            if (stored) root.setAttribute("data-bs-theme", stored);
+            const saved = localStorage.getItem("theme");
+            if (saved) root.setAttribute("data-bs-theme", saved);
 
             document.getElementById('themeToggle')?.addEventListener('click', () => {
-                const current = root.getAttribute('data-bs-theme') ?? 'light';
-                const next = current === 'light' ? 'dark' : 'light';
+                const cur = root.getAttribute('data-bs-theme') ?? 'light';
+                const next = cur === 'light' ? 'dark' : 'light';
                 root.setAttribute('data-bs-theme', next);
                 localStorage.setItem('theme', next);
             });
         })();
     </script>
+
     @await RenderSectionAsync("Scripts", required: false)
 </body>
 </html>

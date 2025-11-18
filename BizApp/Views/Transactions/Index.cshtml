@@ -1,4 +1,5 @@
 @model IEnumerable<BizApp.Controllers.TransactionListVm>
+
 @{
     ViewData["Title"] = "Transactions";
 
@@ -13,11 +14,14 @@
 }
 
 <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-3">
-    <h1 class="h3 mb-0"><i class="bi bi-credit-card-2-front me-2"></i>Transactions</h1>
+    <h1 class="h3 mb-0">
+        <i class="bi bi-credit-card-2-front me-2"></i>Transactions
+    </h1>
+
     <div class="d-flex gap-2">
-        <a asp-action="Create" class="btn btn-primary">
-            <i class="bi bi-plus-lg me-1"></i> Create New
-        </a>
+            <a asp-action="Create" class="btn btn-primary">
+                <i class="bi bi-plus-lg me-1"></i> Create New
+            </a>        
     </div>
 </div>
 
@@ -37,7 +41,7 @@
         </select>
         <script>
             // Keep selected merchant after reload
-            (function() {
+            (function () {
                 var sel = document.querySelector('select[name="merchantId"]');
                 if (sel) sel.value = '@merchantIdVal';
             })();
@@ -45,7 +49,12 @@
     </div>
     <div class="col-12 col-md-2 d-flex align-items-end">
         <div class="form-check">
-            <input type="checkbox" class="form-check-input" name="flaggedOnly" value="true" id="flaggedOnly" @(flaggedChecked ? "checked" : "") />
+            <input type="checkbox"
+                   class="form-check-input"
+                   name="flaggedOnly"
+                   value="true"
+                   id="flaggedOnly"
+                   @(flaggedChecked ? "checked" : "") />
             <label class="form-check-label" for="flaggedOnly">Flagged only</label>
         </div>
     </div>
@@ -121,16 +130,32 @@
                         </td>
                         <td class="text-end">
                             <div class="btn-group btn-group-sm" role="group">
-                                <a asp-action="Details" asp-route-id="@t.tx_id" class="btn btn-outline-primary">
+                                @* Always visible *@
+                                <a asp-action="Details"
+                                   asp-route-id="@t.tx_id"
+                                   class="btn btn-outline-primary">
                                     <i class="bi bi-eye"></i>
                                 </a>
-                                <a asp-action="Edit" asp-route-id="@t.tx_id" class="btn btn-outline-secondary">
-                                    <i class="bi bi-pencil"></i>
-                                </a>
-                                <a asp-action="Delete" asp-route-id="@t.tx_id" class="btn btn-outline-danger">
-                                    <i class="bi bi-trash"></i>
-                                </a>
-                                <form method="post" asp-action="ScoreNow" class="d-inline">
+
+                                @* Admin-only actions *@
+                                @if (User.IsInRole("Admin"))
+                                {
+                                    <a asp-action="Edit"
+                                       asp-route-id="@t.tx_id"
+                                       class="btn btn-outline-secondary">
+                                        <i class="bi bi-pencil"></i>
+                                    </a>
+
+                                    <a asp-action="Delete"
+                                       asp-route-id="@t.tx_id"
+                                       class="btn btn-outline-danger">
+                                        <i class="bi bi-trash"></i>
+                                    </a>
+                                }
+
+                                <form method="post"
+                                      asp-action="ScoreNow"
+                                      class="d-inline">
                                     @Html.AntiForgeryToken()
                                     <input type="hidden" name="id" value="@t.tx_id" />
                                     <button type="submit" class="btn btn-warning">
@@ -156,7 +181,7 @@
             // Ensure "YYYY-MM-DDTHH:mm" format (datetime-local)
             if (el.value.length === 19 && el.value.indexOf('T') === -1) {
                 // "yyyy-MM-dd HH:mm:ss" -> "yyyy-MM-ddTHH:mm"
-                el.value = el.value.replace(' ', 'T').slice(0,16);
+                el.value = el.value.replace(' ', 'T').slice(0, 16);
             }
         }
     </script>

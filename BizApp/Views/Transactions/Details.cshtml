@@ -75,7 +75,6 @@
                         }
                         else
                         {
-
                             <span class="text-muted">(none)</span>
                         }
                     </dd>
@@ -102,19 +101,29 @@
         <div class="card shadow-sm mt-3">
             <div class="card-body">
                 <h5 class="card-title mb-3">Analyst Decision</h5>
-                <form asp-action="Label" method="post" class="d-flex gap-2">
-                    @Html.AntiForgeryToken()
-                    <input type="hidden" name="id" value="@Model.Tx.tx_id" />
-                    <button type="submit" name="fraud" value="true" class="btn btn-danger">
-                        Mark Fraud
-                    </button>
-                    <button type="submit" name="fraud" value="false" class="btn btn-secondary">
-                        Mark Legit
-                    </button>
-                </form>
-                <small class="text-muted d-block mt-2">
-                    Your decision immediately updates Labels and overrides the model’s prediction for this transaction.
-                </small>
+
+                @if (User.IsInRole("Admin"))
+                {
+                    <form asp-action="Label" method="post" class="d-flex gap-2">
+                        @Html.AntiForgeryToken()
+                        <input type="hidden" name="id" value="@Model.Tx.tx_id" />
+                        <button type="submit" name="fraud" value="true" class="btn btn-danger">
+                            Mark Fraud
+                        </button>
+                        <button type="submit" name="fraud" value="false" class="btn btn-secondary">
+                            Mark Legit
+                        </button>
+                    </form>
+                    <small class="text-muted d-block mt-2">
+                        Your decision immediately updates Labels and overrides the model’s prediction for this transaction.
+                    </small>
+                }
+                else
+                {
+                    <div class="alert alert-info mb-0 small">
+                        Only fraud analysts (admin users) can change the fraud label for this transaction.
+                    </div>
+                }
             </div>
         </div>
     </div>
@@ -139,6 +148,10 @@
 <hr class="my-4" />
 
 <div class="d-flex gap-2">
-    <a asp-action="Edit" asp-route-id="@Model.Tx.tx_id" class="btn btn-outline-secondary">Edit</a>
+    @* You may also want Edit to be admin-only *@
+    @if (User.IsInRole("Admin"))
+    {
+        <a asp-action="Edit" asp-route-id="@Model.Tx.tx_id" class="btn btn-outline-secondary">Edit</a>
+    }
     <a asp-action="Index" class="btn btn-link">Back to List</a>
 </div>

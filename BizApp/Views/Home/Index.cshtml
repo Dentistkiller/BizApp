@@ -1,58 +1,209 @@
 ﻿@{
     ViewData["Title"] = "Home - VeriPay";
+    bool isLoggedIn = User.Identity?.IsAuthenticated ?? false;
+    bool isAdmin = User.IsInRole("Admin");
 }
 
-<div class="container my-5">
-    <!-- Hero Section -->
-    <div class="text-center mb-5">
-        <h1 class="display-3 fw-bold">Welcome to VeriPay</h1>
-        <p class="lead text-muted">
-            Secure every payment with real-time fraud detection and smart transaction monitoring.
-        </p>
-        <div class="mt-4">
-            <a asp-controller="Auth" asp-action="Register" class="btn btn-primary btn-lg me-2">Get Started</a>
-            <a asp-controller="Auth" asp-action="Login" class="btn btn-outline-secondary btn-lg">Sign In</a>
-        </div>
-    </div>
+@if (!isLoggedIn)
+{
+    <!-- ========================= -->
+    <!--   PUBLIC LANDING PAGE     -->
+    <!-- ========================= -->
 
-    <!-- Features Section -->
-    <div class="row text-center mb-5">
-        <div class="col-md-4">
-            <div class="card shadow-sm p-4 h-100">
-                <div class="mb-3">
-                    <i class="bi bi-shield-lock display-4 text-primary"></i>
-                </div>
-                <h4 class="fw-bold">Fraud Protection</h4>
-                <p class="text-muted">Stay ahead with AI-powered fraud detection that safeguards your business and customers.</p>
+    <div class="container my-5">
+        <!-- Hero Section -->
+        <div class="text-center mb-5">
+            <h1 class="display-3 fw-bold">Welcome to VeriPay</h1>
+            <p class="lead text-muted">
+                Secure every payment with real-time fraud detection and smart transaction monitoring.
+            </p>
+            <div class="mt-4">
+                <a asp-controller="Auth" asp-action="Register" class="btn btn-primary btn-lg me-2">Get Started</a>
+                <a asp-controller="Auth" asp-action="Login" class="btn btn-outline-secondary btn-lg">Sign In</a>
             </div>
         </div>
-        <div class="col-md-4">
-            <div class="card shadow-sm p-4 h-100">
-                <div class="mb-3">
-                    <i class="bi bi-graph-up display-4 text-success"></i>
-                </div>
-                <h4 class="fw-bold">Smart Analytics</h4>
-                <p class="text-muted">Gain insights into transaction trends with detailed dashboards and reporting tools.</p>
-            </div>
-        </div>
-        <div class="col-md-4">
-            <div class="card shadow-sm p-4 h-100">
-                <div class="mb-3">
-                    <i class="bi bi-credit-card display-4 text-warning"></i>
-                </div>
-                <h4 class="fw-bold">Seamless Payments</h4>
-                <p class="text-muted">Fast, reliable, and secure payment verification that keeps your business moving.</p>
-            </div>
-        </div>
-    </div>
 
-    <!-- Call to Action -->
-    <div class="bg-light p-5 rounded text-center shadow-sm">
-        <h2 class="fw-bold mb-3">Ready to secure your transactions?</h2>
-        <p class="lead text-muted">Join VeriPay today and experience the next generation of payment security.</p>
-        <a asp-controller="Auth" asp-action="Register" class="btn btn-success btn-lg">Create Your Account</a>
+        <!-- Features Section -->
+        <div class="row text-center mb-5">
+            <div class="col-md-4">
+                <div class="card shadow-sm p-4 h-100">
+                    <div class="mb-3">
+                        <i class="bi bi-shield-lock display-4 text-primary"></i>
+                    </div>
+                    <h4 class="fw-bold">Fraud Protection</h4>
+                    <p class="text-muted">Stay ahead with AI-powered fraud detection that safeguards your business and customers.</p>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card shadow-sm p-4 h-100">
+                    <div class="mb-3">
+                        <i class="bi bi-graph-up display-4 text-success"></i>
+                    </div>
+                    <h4 class="fw-bold">Smart Analytics</h4>
+                    <p class="text-muted">Gain insights into transaction trends with detailed dashboards and reporting tools.</p>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card shadow-sm p-4 h-100">
+                    <div class="mb-3">
+                        <i class="bi bi-credit-card display-4 text-warning"></i>
+                    </div>
+                    <h4 class="fw-bold">Seamless Payments</h4>
+                    <p class="text-muted">Fast, reliable, and secure payment verification that keeps your business moving.</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Call to Action -->
+        <div class="bg-light p-5 rounded text-center shadow-sm">
+            <h2 class="fw-bold mb-3">Ready to secure your transactions?</h2>
+            <p class="lead text-muted">Join VeriPay today and experience the next generation of payment security.</p>
+            <a asp-controller="Auth" asp-action="Register" class="btn btn-success btn-lg">Create Your Account</a>
+        </div>
     </div>
-</div>
+}
+else
+{
+    <!-- ========================= -->
+    <!--      LOGGED-IN HOME      -->
+    <!-- ========================= -->
+
+    <div class="container my-5">
+
+        <!-- Welcome banner -->
+        <div class="p-4 bg-primary text-white rounded shadow-sm mb-4 d-flex flex-wrap justify-content-between align-items-center gap-2">
+            <div>
+                <h1 class="fw-bold mb-1">Welcome back, @User.Identity!.Name</h1>
+                <p class="mb-0">
+                    Jump back into your VeriPay workspace using the shortcuts below.
+                </p>
+            </div>
+            <div>
+                <span class="badge bg-light text-primary me-2">
+                    <i class="bi bi-person-check me-1"></i>
+                    @(isAdmin ? "Admin user" : "Standard user")
+                </span>
+            </div>
+        </div>
+
+        <!-- Quick shortcuts -->
+        <div class="row g-3 mb-4">
+            <div class="col-md-4">
+                <a asp-controller="Auth" asp-action="Index" class="text-decoration-none">
+                    <div class="card p-4 shadow-sm h-100">
+                        <h4 class="fw-bold mb-2">
+                            <i class="bi bi-person-badge me-2"></i> My Account
+                        </h4>
+                        <p class="text-muted mb-0">
+                            View your profile and manage your cards and account details.
+                        </p>
+                    </div>
+                </a>
+            </div>
+
+            <div class="col-md-4">
+                <a asp-controller="Transactions" asp-action="Index" class="text-decoration-none">
+                    <div class="card p-4 shadow-sm h-100">
+                        <h4 class="fw-bold mb-2">
+                            <i class="bi bi-credit-card-2-front me-2"></i> Transactions
+                        </h4>
+                        <p class="text-muted mb-0">
+                            Browse, review and inspect transaction details and model scores.
+                        </p>
+                    </div>
+                </a>
+            </div>
+
+            @if (isAdmin)
+            {
+                <div class="col-md-4">
+                    <a asp-controller="Dashboard" asp-action="Index" class="text-decoration-none">
+                        <div class="card p-4 shadow-sm h-100">
+                            <h4 class="fw-bold mb-2">
+                                <i class="bi bi-speedometer2 me-2"></i> Admin Dashboard
+                            </h4>
+                            <p class="text-muted mb-0">
+                                View KPIs, flagged rates and high-risk merchants across the estate.
+                            </p>
+                        </div>
+                    </a>
+                </div>
+            }
+        </div>
+
+        <!-- At a glance / Guidance row -->
+        <div class="row g-3 mb-4">
+            <div class="col-lg-6">
+                <div class="card shadow-sm h-100">
+                    <div class="card-body">
+                        <h5 class="fw-bold mb-2">
+                            <i class="bi bi-lightning-charge me-2 text-warning"></i>
+                            Getting the most out of VeriPay
+                        </h5>
+                        <ul class="text-muted small mb-0">
+                            <li>Use the <strong>Transactions</strong> page to drill into suspicious activity.</li>
+                            <li>Open a transaction and, if you’re an admin, <strong>override the model</strong> by marking it fraud or legit.</li>
+                            <li>Keep your <strong>card and contact details</strong> up to date from <strong>My Account</strong>.</li>
+                            @if (isAdmin)
+                            {
+                                <li>Review <strong>Top Merchants</strong> and <strong>Daily Flags</strong> on the Dashboard to prioritise investigations.</li>
+                            }
+                        </ul>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-lg-6">
+                <div class="card shadow-sm h-100">
+                    <div class="card-body">
+                        <h5 class="fw-bold mb-2">
+                            <i class="bi bi-shield-check me-2 text-success"></i>
+                            Security & best practices
+                        </h5>
+                        <ul class="text-muted small mb-0">
+                            <li>Always <strong>log out</strong> when using a shared or public device.</li>
+                            <li>Never share your password or one-time codes with anyone.</li>
+                            <li>Regularly review recent transactions for anything you don’t recognise.</li>
+                            @if (isAdmin)
+                            {
+                                <li>As an admin, avoid making fraud/legit decisions on autopilot – check the underlying details.</li>
+                            }
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Help & info -->
+        <div class="row g-3">
+            <div class="col-lg-12">
+                <div class="card shadow-sm">
+                    <div class="card-body d-flex flex-wrap justify-content-between align-items-center gap-3">
+                        <div>
+                            <h5 class="fw-bold mb-1">
+                                <i class="bi bi-question-circle me-2 text-primary"></i>
+                                Need help using VeriPay?
+                            </h5>
+                            <p class="text-muted mb-0 small">
+                                Visit the My Account page to manage your details, or reach out to your platform administrator
+                                if something looks wrong with a transaction or fraud decision.
+                            </p>
+                        </div>
+                        <div>
+                            <a asp-controller="Auth" asp-action="Index" class="btn btn-outline-primary btn-sm me-2">
+                                Go to My Account
+                            </a>
+                            <a asp-controller="Transactions" asp-action="Index" class="btn btn-primary btn-sm">
+                                View Transactions
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+}
 
 @section Scripts {
     <!-- Bootstrap Icons CDN -->

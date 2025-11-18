@@ -507,6 +507,7 @@ namespace BizApp.Controllers
         }
 
         // GET: Transactions/Edit/5
+        [Authorize(Roles = "Admin")]
         public async Task<IActionResult> Edit(long? id)
         {
             if (id == null) return NotFound();
@@ -573,6 +574,7 @@ namespace BizApp.Controllers
         // POST: Transactions/Edit/5
         [HttpPost]
         [ValidateAntiForgeryToken]
+        [Authorize(Roles = "Admin")]
         public async Task<IActionResult> Edit(long id, [Bind("tx_id,customer_id,card_id,merchant_id,amount,currency,tx_utc,entry_mode,channel,device_id_hash,ip_hash,lat,lon,status")] Transaction transaction)
         {
             if (id != transaction.tx_id) return NotFound();
@@ -613,6 +615,7 @@ namespace BizApp.Controllers
         }
 
         // GET: Transactions/Delete/5
+        [Authorize(Roles = "Admin")]
         public async Task<IActionResult> Delete(long? id)
         {
             if (id == null) return NotFound();
@@ -638,6 +641,7 @@ namespace BizApp.Controllers
         // POST: Transactions/Delete/5
         [HttpPost, ActionName("Delete")]
         [ValidateAntiForgeryToken]
+        [Authorize(Roles = "Admin")]
         public async Task<IActionResult> DeleteConfirmed(long id)
         {
             // Delete child entities first
@@ -681,7 +685,6 @@ namespace BizApp.Controllers
         }
 
         // ---- Admin backfill: score any missing rows in TxScores ----
-        [Authorize(Roles = "Admin")]
         [HttpPost]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> BackfillMissingScores(int max = 200)

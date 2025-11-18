@@ -175,13 +175,13 @@ public class AuthController : Controller
     private async Task SignInAsync(Customer cust, bool persistent = true)
     {
         var claims = new List<Claim>
-        {
-            new Claim(ClaimTypes.NameIdentifier, cust.customer_id.ToString()),
-            new Claim(ClaimTypes.Name, cust.name ?? $"Customer {cust.customer_id}")
-        };
+    {
+        new Claim(ClaimTypes.NameIdentifier, cust.customer_id.ToString()),
+        new Claim(ClaimTypes.Name, cust.name ?? $"Customer {cust.customer_id}")
+    };
 
         if (cust.is_admin)
-            claims.Add(new Claim(ClaimTypes.Role, "Admin"));
+            claims.Add(new Claim(ClaimTypes.Role, "Admin"));   // ✅ THIS is the RBAC bit
 
         var id = new ClaimsIdentity(claims, CookieAuthenticationDefaults.AuthenticationScheme);
         var principal = new ClaimsPrincipal(id);
@@ -195,6 +195,7 @@ public class AuthController : Controller
                 ExpiresUtc = DateTimeOffset.UtcNow.AddDays(14)
             });
     }
+
 
     // ---------- Cards ----------
     [HttpPost]

@@ -10,6 +10,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace BizApp.Controllers
 {
+    [Authorize(Roles = "Admin")]
     public class DashboardController : Controller
     {
         private readonly FraudDbContext _db;
@@ -55,9 +56,6 @@ namespace BizApp.Controllers
 
             return anchorUtc;
         }
-
-        // Page
-        [Authorize]
         public async Task<IActionResult> Index()
         {
             var anchorUtc = await GetActivityAnchorUtcAsync();
